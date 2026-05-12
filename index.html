@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comic Collection</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💥</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Comic Collection</h1>
+    <div class="header-actions">
+      <div class="filter-tabs">
+        <button class="filter-btn active" data-filter="to-read">To Read</button>
+        <button class="filter-btn" data-filter="read">Read</button>
+        <button class="filter-btn" data-filter="didnt-like">Didn't Like</button>
+        <button class="filter-btn" data-filter="favourites">&#9733; Favourites</button>
+      </div>
+      <button id="add-btn" class="primary-btn">+ Add Comic</button>
+      <button id="settings-btn" class="icon-btn" title="Settings">&#9881;</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="empty-state" class="empty-state">
+      <p>No comics yet. Click <strong>+ Add Comic</strong> to search and add your first one.</p>
+    </div>
+    <div id="collection-grid" class="collection-grid"></div>
+  </main>
+
+  <!-- Add Comic Modal -->
+  <div id="add-modal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Add Comic</h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search by title..." autocomplete="off">
+        <button id="search-btn" class="primary-btn">Search</button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+
+  <!-- Comic Detail Modal -->
+  <div id="detail-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="detail-title"></h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="detail-body">
+        <img id="detail-cover" src="" alt="">
+        <div class="detail-info">
+          <p><strong>Publisher:</strong> <span id="detail-publisher"></span></p>
+          <p><strong>Year:</strong> <span id="detail-year"></span></p>
+          <p><strong>Issues:</strong> <span id="detail-issues"></span></p>
+          <div class="detail-status">
+            <button class="status-pill" data-status="to-read">To Read</button>
+            <button class="status-pill" data-status="read">Read</button>
+            <button class="status-pill" data-status="didnt-like">Didn't Like</button>
+          </div>
+          <div class="detail-batcave">
+            <input type="url" id="detail-batcave-input" placeholder="BatCave URL">
+            <a id="detail-batcave-link" href="#" target="_blank" rel="noopener" class="hidden">View on Batcave ↗</a>
+          </div>
+          <div class="detail-actions">
+            <button id="detail-save" class="primary-btn">Save to Collection</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="settings-body">
+        <label for="api-key-input">Comic Vine API Key</label>
+        <input type="password" id="api-key-input" placeholder="Enter your Comic Vine API key">
+
+        <label for="gsheet-id-input">Google Sheet ID</label>
+        <input type="text" id="gsheet-id-input" placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
+
+        <label for="gsheet-api-key-input">Google API Key</label>
+        <input type="password" id="gsheet-api-key-input" placeholder="Enter your Google API key">
+
+        <label for="gsheet-json-input">Service Account JSON</label>
+        <textarea id="gsheet-json-input" rows="4" placeholder="Paste the full service account JSON here"></textarea>
+
+        <div class="settings-status" id="sheets-status"></div>
+        <button id="save-settings" class="primary-btn">Save</button>
+        <button id="sync-now-btn" class="secondary-btn">Sync Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
