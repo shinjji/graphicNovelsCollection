@@ -1174,4 +1174,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target === modal) modal.classList.add("hidden");
     });
   });
+
+  // Lock body scroll when any modal is open
+  const allModals = document.querySelectorAll(".modal");
+  const scrollObserver = new MutationObserver(() => {
+    const anyOpen = [...allModals].some(m => !m.classList.contains("hidden"));
+    document.body.style.overflow = anyOpen ? "hidden" : "";
+  });
+  allModals.forEach(m => scrollObserver.observe(m, { attributes: true, attributeFilter: ["class"] }));
 });
