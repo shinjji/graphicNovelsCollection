@@ -581,6 +581,27 @@ main {
   color: #aaa;
 }
 
+.modal-confirm {
+  max-width: 360px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+#confirm-message {
+  font-size: 0.95rem;
+  color: #ccc;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .synopsis-body {
   padding: 1.25rem;
   font-size: 0.9rem;

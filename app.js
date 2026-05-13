@@ -482,6 +482,23 @@ function escapeAttr(str) {
   return str.replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    document.getElementById("confirm-message").textContent = message;
+    document.getElementById("confirm-modal").classList.remove("hidden");
+    const ok = document.getElementById("confirm-ok");
+    const cancel = document.getElementById("confirm-cancel");
+    function cleanup(result) {
+      document.getElementById("confirm-modal").classList.add("hidden");
+      ok.replaceWith(ok.cloneNode(true));
+      cancel.replaceWith(cancel.cloneNode(true));
+      resolve(result);
+    }
+    document.getElementById("confirm-ok").addEventListener("click", () => cleanup(true), { once: true });
+    document.getElementById("confirm-cancel").addEventListener("click", () => cleanup(false), { once: true });
+  });
+}
+
 // --- Detail Modal ---
 
 function renderDescription(html, comicName) {
@@ -1048,7 +1065,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Detail save
-  document.getElementById("detail-save").addEventListener("click", () => {
+  document.getElementById("detail-save").addEventListener("click", async () => {
     if (!activeDetailComic) return;
 
     const status = activeDetailStatus;
@@ -1063,12 +1080,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (status === "finished-with") {
         const toRead = existingIssues.filter(i => i.status === "to-read");
         if (toRead.length > 0) {
-          if (!confirm(`This will set ${toRead.length} unread issue${toRead.length !== 1 ? "s" : ""} to "Finished With". Continue?`)) return;
+          if (!await showConfirm(`This will set ${toRead.length} unread issue${toRead.length !== 1 ? "s" : ""} to "Finished With".`)) return;
           toRead.forEach(i => { i.status = "finished-with"; });
           saveIssues();
         }
       } else {
-        if (!confirm(`This will also set all ${existingIssues.length} issues to "${statusLabel(status)}". Continue?`)) return;
+        if (!await showConfirm(`This will set all ${existingIssues.length} issues to "${statusLabel(status)}".`)) return;
         existingIssues.forEach(i => { i.status = status; });
         saveIssues();
       }
