@@ -488,13 +488,17 @@ function openDetail(comic, isNew) {
   const volIssues = issues.filter(i => i.volumeId === comic.id);
 
   function setIssuesLink() {
+    if (comic.issueCount <= 1) {
+      issuesEl.textContent = `${comic.issueCount} issue${comic.issueCount !== 1 ? "s" : ""}`;
+      return;
+    }
     issuesEl.innerHTML = `<button class="issues-link">${comic.issueCount} issues</button>`;
     issuesEl.querySelector(".issues-link").onclick = () => openIssuesModal(comic);
   }
 
   if (volIssues.length > 0) {
     setIssuesLink();
-  } else if (!isNew && getSetting("comicVineKey")) {
+  } else if (!isNew && comic.issueCount > 1 && getSetting("comicVineKey")) {
     issuesEl.innerHTML = `<span class="issues-loading">loading…</span>`;
     ensureIssuesLoaded(comic.id).then(() => {
       if (activeDetailComic && activeDetailComic.id === comic.id) setIssuesLink();
@@ -504,7 +508,7 @@ function openDetail(comic, isNew) {
       }
     });
   } else {
-    issuesEl.textContent = `${comic.issueCount} issues`;
+    issuesEl.textContent = `${comic.issueCount} issue${comic.issueCount !== 1 ? "s" : ""}`;
   }
 
   function renderDescription(html) {
