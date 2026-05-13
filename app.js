@@ -627,6 +627,25 @@ function renderIssueCard(issue) {
   `;
 }
 
+function renderArcCard(arc, arcIssues) {
+  const sorted = [...arcIssues].sort((a, b) => parseFloat(a.issueNumber || 0) - parseFloat(b.issueNumber || 0));
+  const first = sorted[0];
+  const nums = sorted.map(i => parseFloat(i.issueNumber || 0));
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const range = min === max ? `#${first.issueNumber}` : `#${min}–${max}`;
+  return `
+    <div class="issue-card arc-card" data-arc="${escapeHtml(arc)}" data-collapsed="true">
+      <img class="issue-cover" src="${first.image}" alt="" loading="lazy">
+      <div class="issue-body">
+        <div class="issue-number">${range}</div>
+        <div class="issue-name">${escapeHtml(arc)}</div>
+        <button class="arc-expand-btn">Expand</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderIssuesGrid(volumeId) {
   const grid = document.getElementById("issues-grid");
   const volIssues = issues
@@ -638,7 +657,7 @@ function renderIssuesGrid(volumeId) {
     return;
   }
 
-  // Group by parsed arc name, preserving first-appearance order
+  // Group by parsed arc name
   const arcGroups = new Map();
   for (const issue of volIssues) {
     const arc = parseArcFromTitle(issue.name);
@@ -648,26 +667,32 @@ function renderIssuesGrid(volumeId) {
 
   const namedArcs = [...arcGroups.keys()].filter(k => k !== "");
 
-  // No arcs detected — flat grid
-  if (namedArcs.length === 0) {
-    grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(renderIssueCard).join("")}</div>`;
+  // No arcs, or all issues belong to one arc — flat grid, no arc cards
+  if (namedArcs.length === 0 || (namedArcs.length === 1 && !arcGroups.has(""))) {
+    grid.innerHTML = volIssues.map(renderIssueCard).join("");
     return;
   }
 
-  // Named arcs in first-appearance order, standalone last
-  const groups = namedArcs.map(arc => ({ label: arc, issues: arcGroups.get(arc) }));
-  if (arcGroups.has("")) groups.push({ label: "", issues: arcGroups.get("") });
+  // Interleave arc cards and standalone issues in issue-number order
+  const seenArcs = new Set();
+  const items = [];
+  for (const issue of volIssues) {
+    const arc = parseArcFromTitle(issue.name);
+    if (arc) {
+      if (!seenArcs.has(arc)) {
+        seenArcs.add(arc);
+        items.push({ type: "arc", arc, issues: arcGroups.get(arc) });
+      }
+    } else {
+      items.push({ type: "issue", issue });
+    }
+  }
 
-  grid.innerHTML = groups.map(group => `
-    <div class="issues-arc-section">
-      <button class="issues-arc-header">
-        <span class="arc-toggle">▾</span>
-        <span class="arc-label">${group.label ? escapeHtml(group.label) : "Standalone"}</span>
-        <span class="arc-count">${group.issues.length} issue${group.issues.length !== 1 ? "s" : ""}</span>
-      </button>
-      <div class="issues-inner-grid">${group.issues.map(renderIssueCard).join("")}</div>
-    </div>
-  `).join("");
+  grid.innerHTML = items.map(item =>
+    item.type === "arc"
+      ? renderArcCard(item.arc, item.issues)
+      : renderIssueCard(item.issue)
+  ).join("");
 }
 
 function pickRandomUnread() {
@@ -913,9 +938,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Issue status click (cycle to-read → read → didnt-like)
   document.getElementById("issues-grid").addEventListener("click", (e) => {
-    const arcHeader = e.target.closest(".issues-arc-header");
-    if (arcHeader) {
-      arcHeader.closest(".issues-arc-section").classList.toggle("collapsed");
+    const expandBtn = e.target.closest(".arc-expand-btn");
+    if (expandBtn) {
+      const arcCard = expandBtn.closest(".arc-card");
+      const arcName = arcCard.dataset.arc;
+      const isCollapsed = arcCard.dataset.collapsed === "true";
+      const grid = document.getElementById("issues-grid");
+
+      if (isCollapsed) {
+        const arcIssues = issues
+          .filter(i => i.volumeId === activeIssuesComic.id && parseArcFromTitle(i.name) === arcName)
+          .sort((a, b) => parseFloat(a.issueNumber || 0) - parseFloat(b.issueNumber || 0));
+        const temp = document.createElement("template");
+        temp.innerHTML = arcIssues.map(renderIssueCard).join("");
+        temp.content.querySelectorAll(".issue-card").forEach(card => {
+          card.dataset.arcParent = arcName;
+        });
+        arcCard.after(...temp.content.childNodes);
+        arcCard.dataset.collapsed = "false";
+        expandBtn.textContent = "Collapse";
+      } else {
+        grid.querySelectorAll(".issue-card[data-arc-parent]").forEach(el => {
+          if (el.dataset.arcParent === arcName) el.remove();
+        });
+        arcCard.dataset.collapsed = "true";
+        expandBtn.textContent = "Expand";
+      }
       return;
     }
 

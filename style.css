@@ -704,12 +704,10 @@ main {
   padding: 1rem;
   overflow-y: auto;
   max-height: calc(85vh - 60px);
-}
-
-.issues-inner-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
   gap: 0.75rem;
+  align-content: start;
 }
 
 .issue-card {
@@ -756,63 +754,25 @@ main {
 }
 
 .issues-loading-msg {
+  grid-column: 1 / -1;
   padding: 2rem;
   text-align: center;
   color: #666;
 }
 
-.issues-arc-section {
-  margin-bottom: 1.25rem;
-}
-
-.issues-arc-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
+.arc-expand-btn {
   background: none;
   border: none;
-  padding: 0.25rem 0 0.5rem;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #4a9eff;
   cursor: pointer;
-  color: inherit;
+  font-family: inherit;
   text-align: left;
 }
 
-.issues-arc-header::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #2a2a2a;
-}
-
-.arc-toggle {
-  font-size: 0.75rem;
-  color: #888;
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-
-.arc-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-}
-
-.arc-count {
-  font-size: 0.65rem;
-  color: #555;
-  white-space: nowrap;
-}
-
-.issues-arc-section.collapsed .arc-toggle {
-  transform: rotate(-90deg);
-}
-
-.issues-arc-section.collapsed .issues-inner-grid {
-  display: none;
+.arc-expand-btn:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 600px) {
