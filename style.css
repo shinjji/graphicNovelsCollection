@@ -727,12 +727,14 @@ main {
 }
 
 .arc-card[data-collapsed="false"] {
-  border-color: #3a3a3a;
+  border-color: #4a9eff;
 }
 
 .arc-card[data-collapsed="false"] .issue-cover {
   filter: grayscale(1);
   opacity: 0.5;
+  outline: 3px solid #4a9eff;
+  outline-offset: -3px;
 }
 
 .issue-body {
