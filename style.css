@@ -78,13 +78,18 @@ header h1::before {
 .filter-btn:hover {
   border-color: #e94560;
   color: #e94560;
-  background: rgba(233, 69, 96, 0.1);
+  background: rgba(233, 69, 96, 0.08);
 }
 
 .filter-btn.active {
   border-color: #e94560;
-  color: #e94560;
-  background: rgba(233, 69, 96, 0.1);
+  color: #fff;
+  background: #e94560;
+}
+
+.filter-btn.active:hover {
+  background: rgba(233, 69, 96, 0.75);
+  color: #fff;
 }
 
 .primary-btn {
