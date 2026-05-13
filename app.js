@@ -7,6 +7,7 @@ let issues = [];
 let activeFilters = new Set(["to-read"]);
 let activeDetailComic = null;
 let activeDetailStatus = "to-read";
+let activeIssuesComic = null;
 let jsonpCounter = 0;
 let viewMode = localStorage.getItem("viewMode") || "grid";
 
@@ -164,7 +165,7 @@ async function readIssuesFromSheets() {
   const sheetId = getSetting("gsheetId");
   const apiKey = getSetting("gsheetApiKey");
 
-  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000?key=${apiKey}`);
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H10000?key=${apiKey}`);
   if (!resp.ok) throw new Error(`Issues read failed: ${resp.status}`);
   const data = await resp.json();
 
@@ -178,6 +179,7 @@ async function readIssuesFromSheets() {
     coverDate: row[4] || "",
     image: row[5] || "",
     status: row[6] || "to-read",
+    storyArc: row[7] || "",
   }));
 }
 
@@ -213,17 +215,17 @@ async function writeIssuesToSheets(issuesArray) {
   const token = await getAccessToken(saJson);
 
   const rows = issuesArray.map((i) => [
-    i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status,
+    i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status, i.storyArc || "",
   ]);
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000:clear`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H10000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (rows.length === 0) return;
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -294,7 +296,7 @@ async function fetchIssuesForVolume(volumeId) {
   const limit = 100;
 
   while (true) {
-    const url = `${COMIC_VINE_BASE}/issues/?api_key=${apiKey}&filter=volume:${volumeId}&field_list=id,name,issue_number,cover_date,image&sort=issue_number:asc&limit=${limit}&offset=${offset}`;
+    const url = `${COMIC_VINE_BASE}/issues/?api_key=${apiKey}&filter=volume:${volumeId}&field_list=id,name,issue_number,cover_date,image,story_arc_credits&sort=issue_number:asc&limit=${limit}&offset=${offset}`;
     const data = await jsonp(url);
 
     if (data.status_code !== 1 || !data.results || data.results.length === 0) break;
@@ -308,6 +310,7 @@ async function fetchIssuesForVolume(volumeId) {
         coverDate: issue.cover_date || "",
         image: issue.image?.small_url || issue.image?.thumb_url || "",
         status: "to-read",
+        storyArc: issue.story_arc_credits?.[0]?.name || "",
       });
     }
 
@@ -577,6 +580,7 @@ function openSynopsis(title, html) {
 }
 
 function openIssuesModal(comic) {
+  activeIssuesComic = comic;
   document.getElementById("issues-modal-title").textContent = comic.name;
   const grid = document.getElementById("issues-grid");
   grid.innerHTML = `<p class="issues-loading-msg">Loading issues…</p>`;
@@ -590,6 +594,19 @@ function openIssuesModal(comic) {
   });
 }
 
+function renderIssueCard(issue) {
+  return `
+    <div class="issue-card">
+      <img class="issue-cover" src="${issue.image}" alt="" loading="lazy">
+      <div class="issue-body">
+        <div class="issue-number">#${escapeHtml(issue.issueNumber)}</div>
+        ${issue.name ? `<div class="issue-name">${escapeHtml(issue.name)}</div>` : ""}
+        <span class="status-badge ${issue.status} issue-status" data-issue-id="${issue.id}" title="Click to change">${statusLabel(issue.status)}</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderIssuesGrid(volumeId) {
   const grid = document.getElementById("issues-grid");
   const volIssues = issues
@@ -601,16 +618,39 @@ function renderIssuesGrid(volumeId) {
     return;
   }
 
-  grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(issue => `
-    <div class="issue-card">
-      <img class="issue-cover" src="${issue.image}" alt="" loading="lazy">
-      <div class="issue-body">
-        <div class="issue-number">#${escapeHtml(issue.issueNumber)}</div>
-        ${issue.name ? `<div class="issue-name">${escapeHtml(issue.name)}</div>` : ""}
-        <span class="status-badge ${issue.status} issue-status" data-issue-id="${issue.id}" title="Click to change">${statusLabel(issue.status)}</span>
-      </div>
+  // Group by story arc, preserving order of first appearance
+  const arcGroups = new Map();
+  for (const issue of volIssues) {
+    const arc = issue.storyArc || "";
+    if (!arcGroups.has(arc)) arcGroups.set(arc, []);
+    arcGroups.get(arc).push(issue);
+  }
+
+  const namedArcs = [...arcGroups.keys()].filter(k => k !== "");
+  const hasArcs = namedArcs.length > 0;
+
+  // If no arc data at all, render flat grid
+  if (!hasArcs && !arcGroups.has("")) {
+    grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(renderIssueCard).join("")}</div>`;
+    return;
+  }
+
+  // Named arcs in order of first appearance, standalone issues last
+  const groups = namedArcs.map(arc => ({ label: arc, issues: arcGroups.get(arc) }));
+  if (arcGroups.has("")) groups.push({ label: "", issues: arcGroups.get("") });
+
+  // If only standalone issues (no arc data), render flat
+  if (groups.length === 1 && groups[0].label === "") {
+    grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(renderIssueCard).join("")}</div>`;
+    return;
+  }
+
+  grid.innerHTML = groups.map(group => `
+    <div class="issues-arc-section">
+      <div class="issues-arc-divider"><span>${group.label ? escapeHtml(group.label) : "Standalone"}</span></div>
+      <div class="issues-inner-grid">${group.issues.map(renderIssueCard).join("")}</div>
     </div>
-  `).join("")}</div>`;
+  `).join("");
 }
 
 function pickRandomUnread() {
@@ -837,6 +877,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     const id = parseInt(card.dataset.id, 10);
     const comic = collection.find((c) => c.id === id);
     if (comic) openDetail(comic, false);
+  });
+
+  // Refresh issues for current volume
+  document.getElementById("issues-refresh-btn").addEventListener("click", async () => {
+    if (!activeIssuesComic) return;
+    const grid = document.getElementById("issues-grid");
+    grid.innerHTML = `<p class="issues-loading-msg">Refreshing…</p>`;
+    try {
+      issues = issues.filter(i => i.volumeId !== activeIssuesComic.id);
+      await ensureIssuesLoaded(activeIssuesComic.id);
+      renderIssuesGrid(activeIssuesComic.id);
+    } catch (err) {
+      grid.innerHTML = `<p class="issues-loading-msg">Refresh failed.</p>`;
+      console.error(err);
+    }
   });
 
   // Issue status click (cycle to-read → read → didnt-like)
