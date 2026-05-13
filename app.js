@@ -185,18 +185,19 @@ async function readIssuesFromSheets() {
 async function writeToSheets(comics) {
   const sheetId = getSetting("gsheetId");
   const saJson = getSetting("gsheetJson");
-  const token = await getAccessToken(saJson);
 
   const rows = comics.map((c) => [
     c.id, c.name, c.publisher, c.year, c.issueCount, c.image, c.status, c.dateAdded, c.batcaveUrl || "", c.favourite ? "true" : "false", c.series || "Miscellaneous", c.description || "",
   ]);
 
+  if (rows.length === 0) return;
+
+  const token = await getAccessToken(saJson);
+
   await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:L1000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
-
-  if (rows.length === 0) return;
 
   await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:L${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
@@ -211,18 +212,19 @@ async function writeToSheets(comics) {
 async function writeIssuesToSheets(issuesArray) {
   const sheetId = getSetting("gsheetId");
   const saJson = getSetting("gsheetJson");
-  const token = await getAccessToken(saJson);
 
   const rows = issuesArray.map((i) => [
     i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status,
   ]);
 
+  if (rows.length === 0) return;
+
+  const token = await getAccessToken(saJson);
+
   await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
-
-  if (rows.length === 0) return;
 
   await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
