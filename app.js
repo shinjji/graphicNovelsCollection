@@ -165,7 +165,7 @@ async function readIssuesFromSheets() {
   const sheetId = getSetting("gsheetId");
   const apiKey = getSetting("gsheetApiKey");
 
-  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H10000?key=${apiKey}`);
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000?key=${apiKey}`);
   if (!resp.ok) throw new Error(`Issues read failed: ${resp.status}`);
   const data = await resp.json();
 
@@ -179,7 +179,6 @@ async function readIssuesFromSheets() {
     coverDate: row[4] || "",
     image: row[5] || "",
     status: row[6] || "to-read",
-    storyArc: row[7] || "",
   }));
 }
 
@@ -215,17 +214,17 @@ async function writeIssuesToSheets(issuesArray) {
   const token = await getAccessToken(saJson);
 
   const rows = issuesArray.map((i) => [
-    i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status, i.storyArc || "",
+    i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status,
   ]);
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H10000:clear`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (rows.length === 0) return;
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:H${rows.length + 1}?valueInputOption=RAW`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -310,7 +309,6 @@ async function fetchIssuesForVolume(volumeId) {
         coverDate: issue.cover_date || "",
         image: issue.image?.small_url || issue.image?.thumb_url || "",
         status: "to-read",
-        storyArc: parseArcFromTitle(issue.name || ""),
       });
     }
 
@@ -631,19 +629,19 @@ function openIssuesModal(comic) {
 function parseArcFromTitle(name) {
   if (!name) return "";
   // "Title, Pt. N" or "Title, Pt N"
-  let m = name.match(/^(.+?),\s*[Pp]t\.?\s*\d/);
+  let m = name.match(/^(.+?),\s*[Pp]t\.?\s*(?:\d|[IVXivx]+\b)/);
   if (m) return m[1].trim();
   // "Title, Part N"
   m = name.match(/^(.+?),\s*[Pp]art\s+\S/);
   if (m) return m[1].trim();
-  // "Title Part N" or "Title Part One/Two/..." (word ordinals)
-  m = name.match(/^(.+?)\s+[Pp]art\s+(\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b)/i);
+  // "Title Part N" — digits, Roman numerals, or English word ordinals
+  m = name.match(/^(.+?)\s+[Pp]art\s+(?:\d|[IVXivx]+\b|\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b)/i);
   if (m) return m[1].trim();
   // "Title Chapter N"
-  m = name.match(/^(.+?)\s+[Cc]hapter\s+\d/);
+  m = name.match(/^(.+?)\s+[Cc]hapter\s+(?:\d|[IVXivx]+\b)/);
   if (m) return m[1].trim();
   // "Title book N"
-  m = name.match(/^(.+?)\s+[Bb]ook\s+\d/i);
+  m = name.match(/^(.+?)\s+[Bb]ook\s+(?:\d|[IVXivx]+\b)/i);
   if (m) return m[1].trim();
   return "";
 }
