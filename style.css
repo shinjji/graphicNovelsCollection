@@ -321,7 +321,6 @@ main {
   color: #4adf7a;
 }
 
-
 .status-badge.didnt-like {
   background: #3a2020;
   color: #e06060;
@@ -550,10 +549,14 @@ main {
   color: #4adf7a;
 }
 
-
 .status-pill[data-status="didnt-like"] {
   background: #3a2020;
   color: #e06060;
+}
+
+.status-pill[data-status="completed"] {
+  background: #1a3a2a;
+  color: #4adf7a;
 }
 
 

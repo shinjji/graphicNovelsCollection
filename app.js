@@ -363,7 +363,8 @@ function renderCollection() {
         if (activeFilters.has("favourites") && !c.favourite && c.status !== "in-progress") return false;
         const statusFilters = [...activeFilters].filter(f => f !== "favourites");
         if (statusFilters.length > 0) {
-          if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
+            if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
+          if (statusFilters.includes("completed")) statusFilters.push("read", "didnt-like");
           if (!statusFilters.includes(c.status)) return false;
         }
         return true;
