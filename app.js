@@ -164,7 +164,7 @@ async function readIssuesFromSheets() {
   const sheetId = getSetting("gsheetId");
   const apiKey = getSetting("gsheetApiKey");
 
-  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G10000?key=${apiKey}`);
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000?key=${apiKey}`);
   if (!resp.ok) throw new Error(`Issues read failed: ${resp.status}`);
   const data = await resp.json();
 
@@ -216,14 +216,14 @@ async function writeIssuesToSheets(issuesArray) {
     i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status,
   ]);
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G10000:clear`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G10000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (rows.length === 0) return;
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
