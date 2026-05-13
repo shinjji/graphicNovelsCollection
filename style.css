@@ -723,6 +723,16 @@ main {
   object-fit: cover;
   display: block;
   background: #222;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.arc-card[data-collapsed="false"] {
+  border-color: #3a3a3a;
+}
+
+.arc-card[data-collapsed="false"] .issue-cover {
+  filter: grayscale(1);
+  opacity: 0.5;
 }
 
 .issue-body {
