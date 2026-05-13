@@ -726,6 +726,10 @@ main {
   transition: filter 0.2s, opacity 0.2s;
 }
 
+.arc-card > .issue-cover {
+  cursor: pointer;
+}
+
 .arc-card[data-collapsed="false"] {
   border-color: #4a9eff;
 }
@@ -755,6 +759,13 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.issue-name.expanded {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .issue-status {

@@ -620,7 +620,7 @@ function renderIssueCard(issue) {
       <img class="issue-cover" src="${issue.image}" alt="" loading="lazy">
       <div class="issue-body">
         <div class="issue-number">#${escapeHtml(issue.issueNumber)}</div>
-        ${issue.name ? `<div class="issue-name">${escapeHtml(issue.name)}</div>` : ""}
+        ${issue.name ? `<div class="issue-name" title="${escapeHtml(issue.name)}">${escapeHtml(issue.name)}</div>` : ""}
         <span class="status-badge ${issue.status} issue-status" data-issue-id="${issue.id}" title="Click to change">${statusLabel(issue.status)}</span>
       </div>
     </div>
@@ -938,9 +938,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Issue status click (cycle to-read → read → didnt-like)
   document.getElementById("issues-grid").addEventListener("click", (e) => {
-    const expandBtn = e.target.closest(".arc-expand-btn");
-    if (expandBtn) {
-      const arcCard = expandBtn.closest(".arc-card");
+    const arcCard = e.target.closest(".arc-expand-btn, .arc-card > .issue-cover")?.closest(".arc-card");
+    if (arcCard) {
+      const expandBtn = arcCard.querySelector(".arc-expand-btn");
       const arcName = arcCard.dataset.arc;
       const isCollapsed = arcCard.dataset.collapsed === "true";
       const grid = document.getElementById("issues-grid");
@@ -964,6 +964,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         arcCard.dataset.collapsed = "true";
         expandBtn.textContent = "Expand";
       }
+      return;
+    }
+
+    const issueName = e.target.closest(".issue-name");
+    if (issueName) {
+      issueName.classList.toggle("expanded");
       return;
     }
 
