@@ -909,16 +909,62 @@ main {
 
 @media (max-width: 600px) {
   header {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  header h1 {
+    font-size: 1.3rem;
+  }
+
+  .header-top {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .collection-stats {
+    margin-left: 0;
+    gap: 1rem;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+  }
+
+  .header-bottom {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-tabs {
+    flex: unset;
+    flex-wrap: wrap;
+  }
+
+  .header-buttons {
+    flex-wrap: wrap;
   }
 
   main {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   .collection-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .modal {
+    padding: 0.5rem;
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    border-radius: 12px 12px 0 0;
+    max-height: 92vh;
+  }
+
+  .modal-large {
+    max-width: 100%;
   }
 
   .detail-body {
@@ -933,5 +979,11 @@ main {
 
   .detail-actions {
     justify-content: center;
+  }
+
+  #issues-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: 0.5rem;
+    padding: 0.75rem;
   }
 }
