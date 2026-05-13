@@ -280,6 +280,8 @@ main {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
 }
 
 .comic-card:hover {
@@ -328,6 +330,14 @@ main {
 
 .comic-card .card-body {
   padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.comic-card .card-body .status-badge {
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .comic-card .card-title {
