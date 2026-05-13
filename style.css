@@ -542,29 +542,6 @@ main {
 .synopsis-body p:last-child { margin-bottom: 0; }
 .synopsis-body h4 { color: #fff; margin-bottom: 0.4rem; font-size: 0.95rem; }
 
-.detail-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.detail-field input,
-.detail-field select {
-  background: #0f0f0f;
-  border: 1px solid #3a3a3a;
-  color: #e0e0e0;
-  padding: 0.4rem 0.7rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  outline: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.detail-field input:focus,
-.detail-field select:focus {
-  border-color: #4a9eff;
-}
 
 .series-divider {
   grid-column: 1 / -1;
@@ -613,21 +590,23 @@ main {
   border-color: #4a9eff;
 }
 
-.detail-batcave a {
+.detail-batcave a,
+.batcave-link {
   font-size: 0.8rem;
   color: #4a9eff;
   text-decoration: none;
 }
 
-.detail-batcave a:hover {
+.detail-batcave a:hover,
+.batcave-link:hover {
   text-decoration: underline;
 }
 
 .detail-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
   margin-top: auto;
-  padding-top: 0.75rem;
 }
 
 /* Settings */

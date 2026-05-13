@@ -384,11 +384,7 @@ function openDetail(comic, isNew) {
     });
   }
 
-  const seriesSelect = document.getElementById("detail-series-input");
-  const currentSeries = comic.series || "Miscellaneous";
-  seriesSelect.innerHTML = getSeriesList().map(s =>
-    `<option value="${escapeHtml(s)}"${s === currentSeries ? " selected" : ""}>${escapeHtml(s)}</option>`
-  ).join("");
+  document.getElementById("detail-series").textContent = comic.series || "Miscellaneous";
 
   setStatusPill(comic.status || "to-read");
 
@@ -399,24 +395,14 @@ function openDetail(comic, isNew) {
   const batcaveLink = document.getElementById("detail-batcave-link");
   batcaveInput.value = comic.batcaveUrl || "";
 
-  if (comic.batcaveUrl) {
-    batcaveInput.classList.add("hidden");
-    batcaveLink.href = comic.batcaveUrl;
-    batcaveLink.classList.remove("hidden");
-  } else {
-    batcaveInput.classList.remove("hidden");
-    batcaveLink.classList.add("hidden");
-  }
+  const updateBatcave = (url) => {
+    batcaveInput.classList.toggle("hidden", !!url);
+    batcaveLink.href = url || "#";
+    batcaveLink.classList.toggle("hidden", !url);
+  };
+  updateBatcave(comic.batcaveUrl);
 
-  batcaveInput.addEventListener("input", () => {
-    const val = batcaveInput.value.trim();
-    if (val) {
-      batcaveLink.href = val;
-      batcaveLink.classList.remove("hidden");
-    } else {
-      batcaveLink.classList.add("hidden");
-    }
-  });
+  batcaveInput.addEventListener("input", () => updateBatcave(batcaveInput.value.trim()));
 
   document.getElementById("detail-modal").classList.remove("hidden");
 }
@@ -442,10 +428,32 @@ function openSynopsis(title, html) {
   document.getElementById("synopsis-modal").classList.remove("hidden");
 }
 
-function getSeriesList() {
-  const set = new Set(collection.map(c => c.series).filter(s => s && s !== "Miscellaneous"));
-  return ["Miscellaneous", ...[...set].sort()];
+function pickRandomUnread() {
+  const unread = collection.filter(c => c.status === "to-read");
+  if (!unread.length) return null;
+
+  const candidates = [];
+  const seriesGroups = new Map();
+
+  for (const comic of unread) {
+    const key = comic.series && comic.series !== "Miscellaneous" ? comic.series : null;
+    if (key) {
+      if (!seriesGroups.has(key)) seriesGroups.set(key, []);
+      seriesGroups.get(key).push(comic);
+    } else {
+      candidates.push(comic);
+    }
+  }
+
+  // For each series, only the first unread (by year) is eligible
+  for (const comics of seriesGroups.values()) {
+    comics.sort((a, b) => (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999));
+    candidates.push(comics[0]);
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
+
 
 function setStatusPill(status) {
   document.querySelectorAll(".status-pill").forEach((p) => {
@@ -606,6 +614,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Random unread picker
+  document.getElementById("random-btn").addEventListener("click", () => {
+    const comic = pickRandomUnread();
+    if (!comic) return;
+    openDetail(comic, false);
+  });
+
   // View toggle
   const viewToggleBtn = document.getElementById("view-toggle-btn");
   viewToggleBtn.innerHTML = viewMode === "grid" ? "&#9776;" : "&#9635;";
@@ -647,19 +662,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const status = getStatusPill();
     const batcaveUrl = document.getElementById("detail-batcave-input").value.trim();
     const favourite = !!activeDetailComic.favourite;
-    const series = document.getElementById("detail-series-input").value || "Miscellaneous";
     const idx = collection.findIndex((c) => c.id === activeDetailComic.id);
 
     if (idx >= 0) {
       collection[idx].status = status;
       collection[idx].batcaveUrl = batcaveUrl;
       collection[idx].favourite = favourite;
-      collection[idx].series = series;
     } else {
       activeDetailComic.status = status;
       activeDetailComic.batcaveUrl = batcaveUrl;
       activeDetailComic.favourite = favourite;
-      activeDetailComic.series = series;
       collection.push(activeDetailComic);
     }
 
