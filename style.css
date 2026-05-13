@@ -331,6 +331,11 @@ main {
   color: #b09fff;
 }
 
+.status-badge.finished-with {
+  background: #2e2800;
+  color: #f0c040;
+}
+
 /* Modals */
 .modal {
   position: fixed;
@@ -552,6 +557,11 @@ main {
 .status-pill[data-status="didnt-like"] {
   background: #3a2020;
   color: #e06060;
+}
+
+.status-pill[data-status="finished-with"] {
+  background: #2e2800;
+  color: #f0c040;
 }
 
 .status-pill[data-status="completed"] {

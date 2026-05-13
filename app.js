@@ -336,7 +336,8 @@ function computeComicStatus(volumeId) {
   if (volIssues.length === 0) return null;
   const statuses = new Set(volIssues.map(i => i.status));
   if (statuses.size === 1) return [...statuses][0];
-  return "in-progress";
+  if (volIssues.some(i => i.status === "to-read")) return "in-progress";
+  return "finished-with";
 }
 
 function syncComicStatusFromIssues(volumeId) {
@@ -364,7 +365,7 @@ function renderCollection() {
         const statusFilters = [...activeFilters].filter(f => f !== "favourites");
         if (statusFilters.length > 0) {
             if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
-          if (statusFilters.includes("completed")) statusFilters.push("read", "didnt-like");
+          if (statusFilters.includes("completed")) statusFilters.push("read", "didnt-like", "finished-with");
           if (!statusFilters.includes(c.status)) return false;
         }
         return true;
@@ -440,7 +441,7 @@ function renderCollection() {
 }
 
 function statusLabel(status) {
-  const labels = { "to-read": "To Read", read: "Read", "didnt-like": "Didn't Like", "in-progress": "In Progress" };
+  const labels = { "to-read": "To Read", read: "Read", "didnt-like": "Didn't Like", "in-progress": "In Progress", "finished-with": "Finished With" };
   return labels[status] || status;
 }
 
@@ -991,7 +992,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Issue status click (cycle to-read → read → didnt-like)
+  // Issue status click (cycle to-read → read → didnt-like → finished-with)
   document.getElementById("issues-grid").addEventListener("click", (e) => {
     const arcCard = e.target.closest(".arc-expand-btn, .arc-card > .issue-cover")?.closest(".arc-card");
     if (arcCard) {
@@ -1035,7 +1036,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const issue = issues.find(i => i.id === issueId);
     if (!issue) return;
 
-    const cycle = ["to-read", "read", "didnt-like"];
+    const cycle = ["to-read", "read", "didnt-like", "finished-with"];
     const idx = cycle.indexOf(issue.status);
     issue.status = cycle[(idx + 1) % cycle.length];
 
@@ -1059,9 +1060,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Warn if changing status and issues exist
     if (existingIssues.length > 0 && status !== currentStatus && status !== "in-progress") {
-      if (!confirm(`This will also set all ${existingIssues.length} issues to "${statusLabel(status)}". Continue?`)) return;
-      existingIssues.forEach(i => { i.status = status; });
-      saveIssues();
+      if (status === "finished-with") {
+        const toRead = existingIssues.filter(i => i.status === "to-read");
+        if (toRead.length > 0) {
+          if (!confirm(`This will set ${toRead.length} unread issue${toRead.length !== 1 ? "s" : ""} to "Finished With". Continue?`)) return;
+          toRead.forEach(i => { i.status = "finished-with"; });
+          saveIssues();
+        }
+      } else {
+        if (!confirm(`This will also set all ${existingIssues.length} issues to "${statusLabel(status)}". Continue?`)) return;
+        existingIssues.forEach(i => { i.status = status; });
+        saveIssues();
+      }
     }
 
     if (idx >= 0) {
