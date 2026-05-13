@@ -260,7 +260,7 @@ async function searchVolumes(query) {
   const apiKey = getSetting("comicVineKey");
   if (!apiKey) throw new Error("NO_API_KEY");
 
-  const url = `${COMIC_VINE_BASE}/search/?api_key=${apiKey}&resources=volume&query=${encodeURIComponent(query)}&field_list=id,name,count_of_issues,publisher,start_year,image,deck`;
+  const url = `${COMIC_VINE_BASE}/search/?api_key=${apiKey}&resources=volume&query=${encodeURIComponent(query)}&field_list=id,name,count_of_issues,publisher,start_year,image`;
   const data = await jsonp(url);
 
   if (data.error === "Invalid API Key") throw new Error("INVALID_API_KEY");
@@ -363,9 +363,8 @@ function renderCollection() {
         if (activeFilters.has("favourites") && !c.favourite && c.status !== "in-progress") return false;
         const statusFilters = [...activeFilters].filter(f => f !== "favourites");
         if (statusFilters.length > 0) {
-          const expanded = [...statusFilters];
-          if (expanded.includes("to-read")) expanded.push("in-progress");
-          if (!expanded.includes(c.status)) return false;
+          if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
+          if (!statusFilters.includes(c.status)) return false;
         }
         return true;
       });
@@ -596,7 +595,7 @@ function volumeToComic(vol, status) {
     image: vol.image?.medium_url || vol.image?.small_url || "",
     status: status || "to-read",
     dateAdded: new Date().toISOString(),
-    description: vol.description || "",
+    description: "",
     series: "Miscellaneous",
   };
 }
