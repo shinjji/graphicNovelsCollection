@@ -275,6 +275,7 @@ function stripHtml(html) {
   return el.textContent || el.innerText || "";
 }
 
+
 async function fetchDescription(comicId) {
   const apiKey = getSetting("comicVineKey");
   if (!apiKey) return "";
@@ -474,6 +475,21 @@ function escapeAttr(str) {
 
 // --- Detail Modal ---
 
+function renderDescription(html, comicName) {
+  const descEl = document.getElementById("detail-description");
+  if (!html) { descEl.classList.add("hidden"); return; }
+  const plain = stripHtml(html);
+  const LIMIT = 200;
+  if (plain.length <= LIMIT) {
+    descEl.textContent = plain;
+    descEl.onclick = null;
+  } else {
+    descEl.innerHTML = escapeHtml(plain.slice(0, LIMIT).trim()) + '… <span style="color:#fff">read more</span>';
+    descEl.onclick = () => openSynopsis(comicName, html);
+  }
+  descEl.classList.remove("hidden");
+}
+
 function openDetail(comic, isNew) {
   activeDetailComic = comic;
   activeDetailStatus = comic.status || "to-read";
@@ -498,45 +514,11 @@ function openDetail(comic, isNew) {
 
   if (volIssues.length > 0) {
     setIssuesLink();
-  } else if (!isNew && comic.issueCount > 1 && getSetting("comicVineKey")) {
-    issuesEl.innerHTML = `<span class="issues-loading">loading…</span>`;
-    ensureIssuesLoaded(comic.id).then(() => {
-      if (activeDetailComic && activeDetailComic.id === comic.id) setIssuesLink();
-    }).catch(() => {
-      if (activeDetailComic && activeDetailComic.id === comic.id) {
-        issuesEl.textContent = `${comic.issueCount} issues`;
-      }
-    });
   } else {
     issuesEl.textContent = `${comic.issueCount} issue${comic.issueCount !== 1 ? "s" : ""}`;
   }
 
-  function renderDescription(html) {
-    const descEl = document.getElementById("detail-description");
-    if (!html) { descEl.classList.add("hidden"); return; }
-    const plain = stripHtml(html);
-    const LIMIT = 200;
-    if (plain.length <= LIMIT) {
-      descEl.textContent = plain;
-      descEl.onclick = null;
-    } else {
-      descEl.innerHTML = escapeHtml(plain.slice(0, LIMIT).trim()) + '… <span style="color:#fff">read more</span>';
-      descEl.onclick = () => openSynopsis(comic.name, html);
-    }
-    descEl.classList.remove("hidden");
-  }
-
-  renderDescription(comic.description || "");
-
-  if (!comic.description && getSetting("comicVineKey")) {
-    fetchDescription(comic.id).then((desc) => {
-      if (desc) {
-        comic.description = desc;
-        renderDescription(desc);
-        saveCollection();
-      }
-    });
-  }
+  renderDescription(comic.description || "", comic.name);
 
   const seriesSpan = document.getElementById("detail-series");
   const seriesSelect = document.getElementById("detail-series-select");
@@ -590,6 +572,8 @@ function openDetail(comic, isNew) {
   };
   updateBatcave(comic.batcaveUrl);
   batcaveInput.oninput = () => updateBatcave(batcaveInput.value.trim());
+
+  document.getElementById("detail-refresh-btn").classList.toggle("hidden", isNew || !getSetting("comicVineKey"));
 
   document.getElementById("detail-modal").classList.remove("hidden");
 }
@@ -963,17 +947,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Refresh issues for current volume
-  document.getElementById("issues-refresh-btn").addEventListener("click", async () => {
-    if (!activeIssuesComic) return;
-    const grid = document.getElementById("issues-grid");
-    grid.innerHTML = `<p class="issues-loading-msg">Refreshing…</p>`;
+  document.getElementById("detail-refresh-btn").addEventListener("click", async () => {
+    if (!activeDetailComic) return;
+    const btn = document.getElementById("detail-refresh-btn");
+    btn.classList.add("spinning");
+
     try {
-      issues = issues.filter(i => i.volumeId !== activeIssuesComic.id);
-      await ensureIssuesLoaded(activeIssuesComic.id);
-      renderIssuesGrid(activeIssuesComic.id);
+      // Refresh description (never touches status)
+      const desc = await fetchDescription(activeDetailComic.id);
+      if (desc) {
+        const idx = collection.findIndex(c => c.id === activeDetailComic.id);
+        if (idx >= 0) collection[idx].description = desc;
+        activeDetailComic.description = desc;
+        renderDescription(desc, activeDetailComic.name);
+        saveCollection();
+      }
+
+      // Refresh issues — preserve all existing statuses
+      const fresh = await fetchIssuesForVolume(activeDetailComic.id);
+      if (fresh.length > 0) {
+        const statusMap = new Map(
+          issues.filter(i => i.volumeId === activeDetailComic.id).map(i => [i.id, i.status])
+        );
+        fresh.forEach(i => { i.status = statusMap.get(i.id) || "to-read"; });
+        issues = issues.filter(i => i.volumeId !== activeDetailComic.id);
+        issues.push(...fresh);
+        saveIssues();
+      }
     } catch (err) {
-      grid.innerHTML = `<p class="issues-loading-msg">Refresh failed.</p>`;
-      console.error(err);
+      console.error("Refresh failed:", err);
+    } finally {
+      btn.classList.remove("spinning");
+      btn.classList.add("done");
+      setTimeout(() => btn.classList.remove("done"), 1500);
     }
   });
 

@@ -52,7 +52,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="detail-title"></h2>
-        <button class="close-btn">&times;</button>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button id="detail-refresh-btn" class="icon-btn hidden" title="Refresh data">&#8635;</button>
+          <button class="close-btn">&times;</button>
+        </div>
       </div>
       <div class="detail-body">
         <img id="detail-cover" src="" alt="">
@@ -112,10 +115,7 @@
     <div class="modal-content modal-large">
       <div class="modal-header">
         <h2 id="issues-modal-title"></h2>
-        <div style="display:flex;align-items:center;gap:0.5rem">
-          <button id="issues-refresh-btn" class="icon-btn" title="Refresh issue data">&#8635;</button>
-          <button class="close-btn">&times;</button>
-        </div>
+        <button class="close-btn">&times;</button>
       </div>
       <div id="issues-grid"></div>
     </div>

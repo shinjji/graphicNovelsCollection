@@ -138,6 +138,23 @@ header h1::before {
   background: rgba(233, 69, 96, 0.1);
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.icon-btn.spinning {
+  animation: spin 0.7s linear infinite;
+  border-color: #4a9eff;
+  color: #4a9eff;
+  pointer-events: none;
+}
+
+.icon-btn.done {
+  border-color: #4adf7a;
+  color: #4adf7a;
+  transition: border-color 0.3s, color 0.3s;
+}
+
 main {
   padding: 2rem;
   max-width: 1400px;
