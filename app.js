@@ -917,7 +917,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     results.innerHTML = `<p class="loading">Searching...</p>`;
 
     try {
-      const volumes = await searchVolumes(query);
+      let volumes = await searchVolumes(query);
+      if (volumes.length === 0 && /^\d+$/.test(query)) {
+        results.innerHTML = `<p class="loading">No results — trying ID lookup…</p>`;
+        const apiKey = getSetting("comicVineKey");
+        const data = await jsonp(`${COMIC_VINE_BASE}/volume/4050-${query}/?api_key=${apiKey}&field_list=id,name,count_of_issues,publisher,start_year,image`);
+        if (data.status_code === 1 && data.results) volumes = [data.results];
+      }
       renderSearchResults(volumes);
       document.getElementById("search-reset-btn").classList.remove("hidden");
     } catch (err) {
