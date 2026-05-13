@@ -239,6 +239,7 @@ function saveCollection() {
 }
 
 function saveIssues() {
+  renderStats();
   writeIssuesToSheets(issues).catch((err) => console.error("Issues write failed:", err));
 }
 
@@ -352,7 +353,33 @@ function syncComicStatusFromIssues(volumeId) {
 
 // --- Rendering ---
 
+function renderStats() {
+  const el = document.getElementById("collection-stats");
+  if (!el) return;
+  const total = collection.length;
+  if (total === 0) { el.innerHTML = ""; return; }
+  const completedStatuses = new Set(["read", "didnt-like", "finished-with"]);
+  const completed = collection.filter(c => completedStatuses.has(c.status)).length;
+  const pct = Math.round((completed / total) * 100);
+  const totalIssues = issues.length;
+  el.innerHTML = `
+    <div class="stat">
+      <span class="stat-value stat-green">${pct}%</span>
+      <span class="stat-label">completed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value stat-blue">${total.toLocaleString()}</span>
+      <span class="stat-label">comics</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value stat-purple">${totalIssues.toLocaleString()}</span>
+      <span class="stat-label">issues</span>
+    </div>
+  `;
+}
+
 function renderCollection() {
+  renderStats();
   const grid = document.getElementById("collection-grid");
   const empty = document.getElementById("empty-state");
 
