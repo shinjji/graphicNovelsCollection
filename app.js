@@ -296,7 +296,7 @@ async function fetchIssuesForVolume(volumeId) {
   const limit = 100;
 
   while (true) {
-    const url = `${COMIC_VINE_BASE}/issues/?api_key=${apiKey}&filter=volume:${volumeId}&field_list=id,name,issue_number,cover_date,image,story_arc_credits&sort=issue_number:asc&limit=${limit}&offset=${offset}`;
+    const url = `${COMIC_VINE_BASE}/issues/?api_key=${apiKey}&filter=volume:${volumeId}&field_list=id,name,issue_number,cover_date,image&sort=issue_number:asc&limit=${limit}&offset=${offset}`;
     const data = await jsonp(url);
 
     if (data.status_code !== 1 || !data.results || data.results.length === 0) break;
@@ -310,7 +310,7 @@ async function fetchIssuesForVolume(volumeId) {
         coverDate: issue.cover_date || "",
         image: issue.image?.small_url || issue.image?.thumb_url || "",
         status: "to-read",
-        storyArc: issue.story_arc_credits?.[0]?.name || "",
+        storyArc: parseArcFromTitle(issue.name || ""),
       });
     }
 
@@ -594,6 +594,26 @@ function openIssuesModal(comic) {
   });
 }
 
+function parseArcFromTitle(name) {
+  if (!name) return "";
+  // "Title, Pt. N" or "Title, Pt N"
+  let m = name.match(/^(.+?),\s*[Pp]t\.?\s*\d/);
+  if (m) return m[1].trim();
+  // "Title, Part N"
+  m = name.match(/^(.+?),\s*[Pp]art\s+\S/);
+  if (m) return m[1].trim();
+  // "Title Part N" or "Title Part One/Two/..." (word ordinals)
+  m = name.match(/^(.+?)\s+[Pp]art\s+(\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b)/i);
+  if (m) return m[1].trim();
+  // "Title Chapter N"
+  m = name.match(/^(.+?)\s+[Cc]hapter\s+\d/);
+  if (m) return m[1].trim();
+  // "Title book N"
+  m = name.match(/^(.+?)\s+[Bb]ook\s+\d/i);
+  if (m) return m[1].trim();
+  return "";
+}
+
 function renderIssueCard(issue) {
   return `
     <div class="issue-card">
@@ -618,36 +638,33 @@ function renderIssuesGrid(volumeId) {
     return;
   }
 
-  // Group by story arc, preserving order of first appearance
+  // Group by parsed arc name, preserving first-appearance order
   const arcGroups = new Map();
   for (const issue of volIssues) {
-    const arc = issue.storyArc || "";
+    const arc = parseArcFromTitle(issue.name);
     if (!arcGroups.has(arc)) arcGroups.set(arc, []);
     arcGroups.get(arc).push(issue);
   }
 
   const namedArcs = [...arcGroups.keys()].filter(k => k !== "");
-  const hasArcs = namedArcs.length > 0;
 
-  // If no arc data at all, render flat grid
-  if (!hasArcs && !arcGroups.has("")) {
+  // No arcs detected — flat grid
+  if (namedArcs.length === 0) {
     grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(renderIssueCard).join("")}</div>`;
     return;
   }
 
-  // Named arcs in order of first appearance, standalone issues last
+  // Named arcs in first-appearance order, standalone last
   const groups = namedArcs.map(arc => ({ label: arc, issues: arcGroups.get(arc) }));
   if (arcGroups.has("")) groups.push({ label: "", issues: arcGroups.get("") });
 
-  // If only standalone issues (no arc data), render flat
-  if (groups.length === 1 && groups[0].label === "") {
-    grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(renderIssueCard).join("")}</div>`;
-    return;
-  }
-
   grid.innerHTML = groups.map(group => `
     <div class="issues-arc-section">
-      <div class="issues-arc-divider"><span>${group.label ? escapeHtml(group.label) : "Standalone"}</span></div>
+      <button class="issues-arc-header">
+        <span class="arc-toggle">▾</span>
+        <span class="arc-label">${group.label ? escapeHtml(group.label) : "Standalone"}</span>
+        <span class="arc-count">${group.issues.length} issue${group.issues.length !== 1 ? "s" : ""}</span>
+      </button>
       <div class="issues-inner-grid">${group.issues.map(renderIssueCard).join("")}</div>
     </div>
   `).join("");
@@ -896,6 +913,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Issue status click (cycle to-read → read → didnt-like)
   document.getElementById("issues-grid").addEventListener("click", (e) => {
+    const arcHeader = e.target.closest(".issues-arc-header");
+    if (arcHeader) {
+      arcHeader.closest(".issues-arc-section").classList.toggle("collapsed");
+      return;
+    }
+
     const badge = e.target.closest(".issue-status");
     if (!badge) return;
 

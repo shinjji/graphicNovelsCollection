@@ -765,27 +765,54 @@ main {
   margin-bottom: 1.25rem;
 }
 
-.issues-arc-divider {
+.issues-arc-header {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.25rem 0 0.5rem;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
 }
 
-.issues-arc-divider span {
+.issues-arc-header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #2a2a2a;
+}
+
+.arc-toggle {
+  font-size: 0.75rem;
+  color: #888;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.arc-label {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #555;
+  color: #aaa;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   white-space: nowrap;
 }
 
-.issues-arc-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #2a2a2a;
+.arc-count {
+  font-size: 0.65rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+.issues-arc-section.collapsed .arc-toggle {
+  transform: rotate(-90deg);
+}
+
+.issues-arc-section.collapsed .issues-inner-grid {
+  display: none;
 }
 
 @media (max-width: 600px) {
