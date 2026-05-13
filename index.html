@@ -41,6 +41,7 @@
       <div class="search-box">
         <input type="text" id="search-input" placeholder="Search by title..." autocomplete="off">
         <button id="search-btn" class="primary-btn">Search</button>
+        <button id="search-reset-btn" class="secondary-btn hidden">Reset</button>
       </div>
       <div id="search-results" class="search-results"></div>
     </div>
@@ -59,7 +60,7 @@
           <p><strong>Publisher:</strong> <span id="detail-publisher"></span></p>
           <p><strong>Year:</strong> <span id="detail-year"></span></p>
           <p><strong>Issues:</strong> <span id="detail-issues"></span></p>
-          <p><strong>Series:</strong> <span id="detail-series"></span></p>
+          <p><strong>Series:</strong> <span id="detail-series"></span><select id="detail-series-select" class="hidden"></select></p>
           <p id="detail-description" class="detail-description hidden"></p>
           <div class="detail-status">
             <button class="status-pill" data-status="to-read">To Read</button>

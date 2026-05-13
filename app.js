@@ -536,7 +536,41 @@ function openDetail(comic, isNew) {
     });
   }
 
-  document.getElementById("detail-series").textContent = comic.series || "Miscellaneous";
+  const seriesSpan = document.getElementById("detail-series");
+  const seriesSelect = document.getElementById("detail-series-select");
+  const currentSeries = comic.series || "Miscellaneous";
+
+  if (isNew) {
+    seriesSpan.classList.add("hidden");
+    seriesSelect.classList.remove("hidden");
+    const existingSeries = [...new Set(
+      collection.map(c => c.series || "Miscellaneous").filter(s => s !== "Miscellaneous")
+    )].sort();
+    seriesSelect.innerHTML = [
+      "Miscellaneous",
+      ...existingSeries,
+    ].map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")
+      + `<option value="__new__">New series…</option>`;
+    seriesSelect.value = "Miscellaneous";
+    seriesSelect.onchange = () => {
+      if (seriesSelect.value === "__new__") {
+        const name = prompt("Series name:")?.trim();
+        if (name) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          seriesSelect.insertBefore(opt, seriesSelect.lastElementChild);
+          seriesSelect.value = name;
+        } else {
+          seriesSelect.value = "Miscellaneous";
+        }
+      }
+    };
+  } else {
+    seriesSpan.classList.remove("hidden");
+    seriesSelect.classList.add("hidden");
+    seriesSpan.textContent = currentSeries;
+  }
 
   setStatusPill(activeDetailStatus);
 
@@ -790,8 +824,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("settings-modal").classList.remove("hidden");
       return;
     }
-    document.getElementById("search-input").value = "";
-    document.getElementById("search-results").innerHTML = "";
     document.getElementById("add-modal").classList.remove("hidden");
     document.getElementById("search-input").focus();
   });
@@ -848,6 +880,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const volumes = await searchVolumes(query);
       renderSearchResults(volumes);
+      document.getElementById("search-reset-btn").classList.remove("hidden");
     } catch (err) {
       if (err.message === "NO_API_KEY") {
         results.innerHTML = `<p class="loading">Set your API key in Settings first.</p>`;
@@ -860,6 +893,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   document.getElementById("search-btn").addEventListener("click", doSearch);
+  document.getElementById("search-reset-btn").addEventListener("click", () => {
+    document.getElementById("search-input").value = "";
+    document.getElementById("search-results").innerHTML = "";
+    document.getElementById("search-reset-btn").classList.add("hidden");
+    document.getElementById("search-input").focus();
+  });
   document.getElementById("search-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") doSearch();
   });
@@ -1016,6 +1055,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       activeDetailComic.status = status;
       activeDetailComic.batcaveUrl = batcaveUrl;
+      activeDetailComic.series = document.getElementById("detail-series-select").value;
       activeDetailComic.favourite = favourite;
       collection.push(activeDetailComic);
       // Fetch issues in background for newly added comic
@@ -1025,6 +1065,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.getElementById("detail-modal").classList.add("hidden");
+    document.getElementById("add-modal").classList.add("hidden");
     saveCollection();
     renderCollection();
   });
