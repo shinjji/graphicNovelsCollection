@@ -310,6 +310,11 @@ main {
   color: #e06060;
 }
 
+.status-badge.in-progress {
+  background: #2a2040;
+  color: #b09fff;
+}
+
 /* Modals */
 .modal {
   position: fixed;
@@ -673,6 +678,87 @@ main {
 
 .hidden {
   display: none !important;
+}
+
+.issues-link {
+  background: none;
+  border: none;
+  color: #4a9eff;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  font-family: inherit;
+}
+
+.issues-link:hover {
+  text-decoration: underline;
+}
+
+.issues-loading {
+  color: #666;
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+#issues-grid {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(85vh - 60px);
+}
+
+.issues-inner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+  gap: 0.75rem;
+}
+
+.issue-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.issue-cover {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  display: block;
+  background: #222;
+}
+
+.issue-body {
+  padding: 0.4rem;
+}
+
+.issue-number {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.15rem;
+}
+
+.issue-name {
+  font-size: 0.68rem;
+  color: #888;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-status {
+  cursor: pointer;
+}
+
+.issue-status:hover {
+  opacity: 0.75;
+}
+
+.issues-loading-msg {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
 }
 
 @media (max-width: 600px) {

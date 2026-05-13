@@ -65,6 +65,7 @@
             <button class="status-pill" data-status="to-read">To Read</button>
             <button class="status-pill" data-status="read">Read</button>
             <button class="status-pill" data-status="didnt-like">Didn't Like</button>
+            <span id="detail-in-progress" class="status-badge in-progress hidden">In Progress</span>
           </div>
           <div class="detail-batcave">
             <input type="url" id="detail-batcave-input" placeholder="BatCave URL">
@@ -102,6 +103,17 @@
         <button id="save-settings" class="primary-btn">Save</button>
         <button id="sync-now-btn" class="secondary-btn">Sync Now</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Issues Modal -->
+  <div id="issues-modal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2 id="issues-modal-title"></h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div id="issues-grid"></div>
     </div>
   </div>
 

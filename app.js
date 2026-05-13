@@ -3,8 +3,10 @@ const SETTINGS_KEY = "comicAppSettings";
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
 let collection = [];
+let issues = [];
 let activeFilters = new Set(["to-read"]);
 let activeDetailComic = null;
+let activeDetailStatus = "to-read";
 let jsonpCounter = 0;
 let viewMode = localStorage.getItem("viewMode") || "grid";
 
@@ -158,6 +160,27 @@ async function readFromSheets() {
   }));
 }
 
+async function readIssuesFromSheets() {
+  const sheetId = getSetting("gsheetId");
+  const apiKey = getSetting("gsheetApiKey");
+
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G10000?key=${apiKey}`);
+  if (!resp.ok) throw new Error(`Issues read failed: ${resp.status}`);
+  const data = await resp.json();
+
+  if (!data.values || data.values.length === 0) return [];
+
+  return data.values.map((row) => ({
+    id: parseInt(row[0], 10),
+    volumeId: parseInt(row[1], 10),
+    issueNumber: row[2] || "",
+    name: row[3] || "",
+    coverDate: row[4] || "",
+    image: row[5] || "",
+    status: row[6] || "to-read",
+  }));
+}
+
 async function writeToSheets(comics) {
   const sheetId = getSetting("gsheetId");
   const saJson = getSetting("gsheetJson");
@@ -184,13 +207,48 @@ async function writeToSheets(comics) {
   });
 }
 
+async function writeIssuesToSheets(issuesArray) {
+  const sheetId = getSetting("gsheetId");
+  const saJson = getSetting("gsheetJson");
+  const token = await getAccessToken(saJson);
+
+  const rows = issuesArray.map((i) => [
+    i.id, i.volumeId, i.issueNumber, i.name, i.coverDate, i.image, i.status,
+  ]);
+
+  await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G10000:clear`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (rows.length === 0) return;
+
+  await fetch(`${SHEETS_API}/${sheetId}/values/Issues!A2:G${rows.length + 1}?valueInputOption=RAW`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ values: rows }),
+  });
+}
+
 function saveCollection() {
   writeToSheets(collection).catch((err) => console.error("Sheets write failed:", err));
+}
+
+function saveIssues() {
+  writeIssuesToSheets(issues).catch((err) => console.error("Issues write failed:", err));
 }
 
 async function syncFromSheets() {
   if (!sheetsConfigured()) throw new Error("Google Sheets not configured");
   collection = await readFromSheets();
+  try {
+    issues = await readIssuesFromSheets();
+  } catch {
+    issues = [];
+  }
   renderCollection();
   return collection.length;
 }
@@ -227,6 +285,68 @@ async function fetchDescription(comicId) {
   }
 }
 
+async function fetchIssuesForVolume(volumeId) {
+  const apiKey = getSetting("comicVineKey");
+  if (!apiKey) return [];
+
+  const allIssues = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const url = `${COMIC_VINE_BASE}/issues/?api_key=${apiKey}&filter=volume:${volumeId}&field_list=id,name,issue_number,cover_date,image&sort=issue_number:asc&limit=${limit}&offset=${offset}`;
+    const data = await jsonp(url);
+
+    if (data.status_code !== 1 || !data.results || data.results.length === 0) break;
+
+    for (const issue of data.results) {
+      allIssues.push({
+        id: issue.id,
+        volumeId: volumeId,
+        issueNumber: issue.issue_number || "",
+        name: issue.name || "",
+        coverDate: issue.cover_date || "",
+        image: issue.image?.small_url || issue.image?.thumb_url || "",
+        status: "to-read",
+      });
+    }
+
+    if (allIssues.length >= data.number_of_total_results || data.results.length < limit) break;
+    offset += limit;
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  return allIssues;
+}
+
+async function ensureIssuesLoaded(volumeId) {
+  const existing = issues.filter(i => i.volumeId === volumeId);
+  if (existing.length > 0) return existing;
+
+  const fetched = await fetchIssuesForVolume(volumeId);
+  issues.push(...fetched);
+  saveIssues();
+  return fetched;
+}
+
+function computeComicStatus(volumeId) {
+  const volIssues = issues.filter(i => i.volumeId === volumeId);
+  if (volIssues.length === 0) return null;
+  const statuses = new Set(volIssues.map(i => i.status));
+  if (statuses.size === 1) return [...statuses][0];
+  return "in-progress";
+}
+
+function syncComicStatusFromIssues(volumeId) {
+  const newStatus = computeComicStatus(volumeId);
+  if (!newStatus) return;
+  const comic = collection.find(c => c.id === volumeId);
+  if (!comic || comic.status === newStatus) return;
+  comic.status = newStatus;
+  saveCollection();
+  renderCollection();
+}
+
 // --- Rendering ---
 
 function renderCollection() {
@@ -238,7 +358,12 @@ function renderCollection() {
     : collection.filter((c) => {
         if (activeFilters.has("favourites") && !c.favourite) return false;
         const statusFilters = [...activeFilters].filter(f => f !== "favourites");
-        if (statusFilters.length > 0 && !statusFilters.includes(c.status)) return false;
+        if (statusFilters.length > 0) {
+          // in-progress shows up under to-read filter
+          const expanded = [...statusFilters];
+          if (expanded.includes("to-read")) expanded.push("in-progress");
+          if (!expanded.includes(c.status)) return false;
+        }
         return true;
       });
 
@@ -305,7 +430,7 @@ function renderCollection() {
 }
 
 function statusLabel(status) {
-  const labels = { "to-read": "To Read", read: "Read", "didnt-like": "Didn't Like" };
+  const labels = { "to-read": "To Read", read: "Read", "didnt-like": "Didn't Like", "in-progress": "In Progress" };
   return labels[status] || status;
 }
 
@@ -350,12 +475,36 @@ function escapeAttr(str) {
 
 function openDetail(comic, isNew) {
   activeDetailComic = comic;
+  activeDetailStatus = comic.status || "to-read";
 
   document.getElementById("detail-title").textContent = comic.name;
   document.getElementById("detail-cover").src = comic.image;
   document.getElementById("detail-publisher").textContent = comic.publisher;
   document.getElementById("detail-year").textContent = comic.year;
-  document.getElementById("detail-issues").textContent = comic.issueCount + " issues";
+
+  // Issues count — clickable link if issues exist or can be loaded
+  const issuesEl = document.getElementById("detail-issues");
+  const volIssues = issues.filter(i => i.volumeId === comic.id);
+
+  function setIssuesLink() {
+    issuesEl.innerHTML = `<button class="issues-link">${comic.issueCount} issues</button>`;
+    issuesEl.querySelector(".issues-link").onclick = () => openIssuesModal(comic);
+  }
+
+  if (volIssues.length > 0) {
+    setIssuesLink();
+  } else if (!isNew && getSetting("comicVineKey")) {
+    issuesEl.innerHTML = `<span class="issues-loading">loading…</span>`;
+    ensureIssuesLoaded(comic.id).then(() => {
+      if (activeDetailComic && activeDetailComic.id === comic.id) setIssuesLink();
+    }).catch(() => {
+      if (activeDetailComic && activeDetailComic.id === comic.id) {
+        issuesEl.textContent = `${comic.issueCount} issues`;
+      }
+    });
+  } else {
+    issuesEl.textContent = `${comic.issueCount} issues`;
+  }
 
   function renderDescription(html) {
     const descEl = document.getElementById("detail-description");
@@ -386,7 +535,7 @@ function openDetail(comic, isNew) {
 
   document.getElementById("detail-series").textContent = comic.series || "Miscellaneous";
 
-  setStatusPill(comic.status || "to-read");
+  setStatusPill(activeDetailStatus);
 
   const saveBtn = document.getElementById("detail-save");
   saveBtn.textContent = isNew ? "Save to Collection" : "Update";
@@ -401,8 +550,7 @@ function openDetail(comic, isNew) {
     batcaveLink.classList.toggle("hidden", !url);
   };
   updateBatcave(comic.batcaveUrl);
-
-  batcaveInput.addEventListener("input", () => updateBatcave(batcaveInput.value.trim()));
+  batcaveInput.oninput = () => updateBatcave(batcaveInput.value.trim());
 
   document.getElementById("detail-modal").classList.remove("hidden");
 }
@@ -428,8 +576,45 @@ function openSynopsis(title, html) {
   document.getElementById("synopsis-modal").classList.remove("hidden");
 }
 
+function openIssuesModal(comic) {
+  document.getElementById("issues-modal-title").textContent = comic.name;
+  const grid = document.getElementById("issues-grid");
+  grid.innerHTML = `<p class="issues-loading-msg">Loading issues…</p>`;
+  document.getElementById("issues-modal").classList.remove("hidden");
+
+  ensureIssuesLoaded(comic.id).then(() => {
+    renderIssuesGrid(comic.id);
+  }).catch((err) => {
+    grid.innerHTML = `<p class="issues-loading-msg">Failed to load issues.</p>`;
+    console.error(err);
+  });
+}
+
+function renderIssuesGrid(volumeId) {
+  const grid = document.getElementById("issues-grid");
+  const volIssues = issues
+    .filter(i => i.volumeId === volumeId)
+    .sort((a, b) => parseFloat(a.issueNumber || 0) - parseFloat(b.issueNumber || 0));
+
+  if (volIssues.length === 0) {
+    grid.innerHTML = `<p class="issues-loading-msg">No issues found.</p>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="issues-inner-grid">${volIssues.map(issue => `
+    <div class="issue-card">
+      <img class="issue-cover" src="${issue.image}" alt="" loading="lazy">
+      <div class="issue-body">
+        <div class="issue-number">#${escapeHtml(issue.issueNumber)}</div>
+        ${issue.name ? `<div class="issue-name">${escapeHtml(issue.name)}</div>` : ""}
+        <span class="status-badge ${issue.status} issue-status" data-issue-id="${issue.id}" title="Click to change">${statusLabel(issue.status)}</span>
+      </div>
+    </div>
+  `).join("")}</div>`;
+}
+
 function pickRandomUnread() {
-  const unread = collection.filter(c => c.status === "to-read");
+  const unread = collection.filter(c => c.status === "to-read" || c.status === "in-progress");
   if (!unread.length) return null;
 
   const candidates = [];
@@ -445,7 +630,6 @@ function pickRandomUnread() {
     }
   }
 
-  // For each series, only the first unread (by year) is eligible
   for (const comics of seriesGroups.values()) {
     comics.sort((a, b) => (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999));
     candidates.push(comics[0]);
@@ -459,10 +643,8 @@ function setStatusPill(status) {
   document.querySelectorAll(".status-pill").forEach((p) => {
     p.classList.toggle("active", p.dataset.status === status);
   });
-}
-
-function getStatusPill() {
-  return document.querySelector(".status-pill.active")?.dataset.status || "to-read";
+  const inProgressEl = document.getElementById("detail-in-progress");
+  if (inProgressEl) inProgressEl.classList.toggle("hidden", status !== "in-progress");
 }
 
 function setSheetsStatus(msg, type) {
@@ -483,7 +665,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderCollection();
 
-  // Filter tabs (multi-select, but Favourites is mutually exclusive)
+  // Filter tabs
   document.querySelectorAll(".filter-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const f = btn.dataset.filter;
@@ -514,7 +696,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Status pills in detail modal
   document.querySelectorAll(".status-pill").forEach((pill) => {
-    pill.addEventListener("click", () => setStatusPill(pill.dataset.status));
+    pill.addEventListener("click", () => {
+      activeDetailStatus = pill.dataset.status;
+      setStatusPill(activeDetailStatus);
+    });
   });
 
   // Add button
@@ -550,7 +735,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Sync now
   document.getElementById("sync-now-btn").addEventListener("click", async () => {
-    // Save settings first
     setSetting("comicVineKey", document.getElementById("api-key-input").value.trim());
     setSetting("gsheetId", document.getElementById("gsheet-id-input").value.trim());
     setSetting("gsheetApiKey", document.getElementById("gsheet-api-key-input").value.trim());
@@ -655,14 +839,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (comic) openDetail(comic, false);
   });
 
+  // Issue status click (cycle to-read → read → didnt-like)
+  document.getElementById("issues-grid").addEventListener("click", (e) => {
+    const badge = e.target.closest(".issue-status");
+    if (!badge) return;
+
+    const issueId = parseInt(badge.dataset.issueId, 10);
+    const issue = issues.find(i => i.id === issueId);
+    if (!issue) return;
+
+    const cycle = ["to-read", "read", "didnt-like"];
+    const idx = cycle.indexOf(issue.status);
+    issue.status = cycle[(idx + 1) % cycle.length];
+
+    badge.className = `status-badge ${issue.status} issue-status`;
+    badge.textContent = statusLabel(issue.status);
+
+    saveIssues();
+    syncComicStatusFromIssues(issue.volumeId);
+  });
+
   // Detail save
   document.getElementById("detail-save").addEventListener("click", () => {
     if (!activeDetailComic) return;
 
-    const status = getStatusPill();
+    const status = activeDetailStatus;
     const batcaveUrl = document.getElementById("detail-batcave-input").value.trim();
     const favourite = !!activeDetailComic.favourite;
     const idx = collection.findIndex((c) => c.id === activeDetailComic.id);
+    const currentStatus = idx >= 0 ? collection[idx].status : activeDetailComic.status;
+    const existingIssues = issues.filter(i => i.volumeId === activeDetailComic.id);
+
+    // Warn if changing status and issues exist
+    if (existingIssues.length > 0 && status !== currentStatus && status !== "in-progress") {
+      if (!confirm(`This will also set all ${existingIssues.length} issues to "${statusLabel(status)}". Continue?`)) return;
+      existingIssues.forEach(i => { i.status = status; });
+      saveIssues();
+    }
 
     if (idx >= 0) {
       collection[idx].status = status;
@@ -673,6 +886,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       activeDetailComic.batcaveUrl = batcaveUrl;
       activeDetailComic.favourite = favourite;
       collection.push(activeDetailComic);
+      // Fetch issues in background for newly added comic
+      if (getSetting("comicVineKey")) {
+        ensureIssuesLoaded(activeDetailComic.id).catch(console.error);
+      }
     }
 
     document.getElementById("detail-modal").classList.add("hidden");
