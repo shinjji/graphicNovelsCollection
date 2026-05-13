@@ -57,10 +57,14 @@
           <p><strong>Publisher:</strong> <span id="detail-publisher"></span></p>
           <p><strong>Year:</strong> <span id="detail-year"></span></p>
           <p><strong>Issues:</strong> <span id="detail-issues"></span></p>
+          <p id="detail-description" class="detail-description hidden"></p>
           <div class="detail-status">
             <button class="status-pill" data-status="to-read">To Read</button>
             <button class="status-pill" data-status="read">Read</button>
             <button class="status-pill" data-status="didnt-like">Didn't Like</button>
+          </div>
+          <div class="detail-field">
+            <select id="detail-series-input"></select>
           </div>
           <div class="detail-batcave">
             <input type="url" id="detail-batcave-input" placeholder="BatCave URL">
@@ -98,6 +102,17 @@
         <button id="save-settings" class="primary-btn">Save</button>
         <button id="sync-now-btn" class="secondary-btn">Sync Now</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Synopsis Modal -->
+  <div id="synopsis-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="synopsis-title"></h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div id="synopsis-body" class="synopsis-body"></div>
     </div>
   </div>
 

@@ -1,9 +1,8 @@
 const COMIC_VINE_BASE = "https://comicvine.gamespot.com/api";
-const STORAGE_KEY = "comicCollection";
 const SETTINGS_KEY = "comicAppSettings";
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
-let collection = loadCollection();
+let collection = [];
 let activeFilters = new Set(["to-read"]);
 let activeDetailComic = null;
 let jsonpCounter = 0;
@@ -32,19 +31,6 @@ function setSetting(key, value) {
   saveSettings(s);
 }
 
-// --- Local Storage ---
-
-function loadCollection() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCollectionLocal() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(collection));
-}
 
 // --- JSONP (Comic Vine blocks CORS, but supports JSONP) ---
 
@@ -149,7 +135,7 @@ async function readFromSheets() {
   const sheetId = getSetting("gsheetId");
   const apiKey = getSetting("gsheetApiKey");
 
-  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:J1000?key=${apiKey}`);
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:L1000?key=${apiKey}`);
   if (!resp.ok) throw new Error(`Sheets read failed: ${resp.status}`);
   const data = await resp.json();
 
@@ -166,6 +152,8 @@ async function readFromSheets() {
     dateAdded: row[7] || "",
     batcaveUrl: row[8] || "",
     favourite: row[9] === "true",
+    series: row[10] || "Miscellaneous",
+    description: row[11] || "",
   }));
 }
 
@@ -175,18 +163,17 @@ async function writeToSheets(comics) {
   const token = await getAccessToken(saJson);
 
   const rows = comics.map((c) => [
-    c.id, c.name, c.publisher, c.year, c.issueCount, c.image, c.status, c.dateAdded, c.batcaveUrl || "", c.favourite ? "true" : "false",
+    c.id, c.name, c.publisher, c.year, c.issueCount, c.image, c.status, c.dateAdded, c.batcaveUrl || "", c.favourite ? "true" : "false", c.series || "Miscellaneous", c.description || "",
   ]);
 
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:J1000:clear`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:L1000:clear`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (rows.length === 0) return;
 
-  // Write all rows
-  await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:J${rows.length + 1}?valueInputOption=RAW`, {
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comics!A2:L${rows.length + 1}?valueInputOption=RAW`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -197,24 +184,14 @@ async function writeToSheets(comics) {
 }
 
 function saveCollection() {
-  saveCollectionLocal();
-  if (sheetsConfigured()) {
-    writeToSheets(collection).catch((err) => console.error("Sheets write failed:", err));
-  }
+  writeToSheets(collection).catch((err) => console.error("Sheets write failed:", err));
 }
 
 async function syncFromSheets() {
   if (!sheetsConfigured()) throw new Error("Google Sheets not configured");
-  const remote = await readFromSheets();
-  collection = remote;
-  saveCollectionLocal();
+  collection = await readFromSheets();
   renderCollection();
-  return remote.length;
-}
-
-async function syncToSheets() {
-  if (!sheetsConfigured()) throw new Error("Google Sheets not configured");
-  await writeToSheets(collection);
+  return collection.length;
 }
 
 // --- Comic Vine API ---
@@ -223,13 +200,30 @@ async function searchVolumes(query) {
   const apiKey = getSetting("comicVineKey");
   if (!apiKey) throw new Error("NO_API_KEY");
 
-  const url = `${COMIC_VINE_BASE}/search/?api_key=${apiKey}&resources=volume&query=${encodeURIComponent(query)}&field_list=id,name,count_of_issues,publisher,start_year,image,deck,api_detail_url`;
+  const url = `${COMIC_VINE_BASE}/search/?api_key=${apiKey}&resources=volume&query=${encodeURIComponent(query)}&field_list=id,name,count_of_issues,publisher,start_year,image,deck`;
   const data = await jsonp(url);
 
   if (data.error === "Invalid API Key") throw new Error("INVALID_API_KEY");
   if (data.status_code !== 1) throw new Error(data.error || "Search failed");
 
   return data.results || [];
+}
+
+function stripHtml(html) {
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  return el.textContent || el.innerText || "";
+}
+
+async function fetchDescription(comicId) {
+  const apiKey = getSetting("comicVineKey");
+  if (!apiKey) return "";
+  try {
+    const data = await jsonp(`${COMIC_VINE_BASE}/volume/4050-${comicId}/?api_key=${apiKey}&field_list=description`);
+    return (data.status_code === 1 && data.results?.description) ? data.results.description : "";
+  } catch {
+    return "";
+  }
 }
 
 // --- Rendering ---
@@ -260,21 +254,41 @@ function renderCollection() {
     return;
   }
 
-  grid.innerHTML = filtered
-    .map(
-      (comic) => `
-    <div class="comic-card" data-id="${comic.id}">
-      <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
-      <img class="cover" src="${comic.image}" alt="${escapeHtml(comic.name)}" loading="lazy">
-      <div class="card-body">
-        <div class="card-title">${escapeHtml(comic.name)}</div>
-        <div class="card-meta">${escapeHtml(comic.publisher)} · ${comic.issueCount} issues · ${comic.year}</div>
-        <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
+  // Group by series
+  const groups = new Map();
+  for (const comic of filtered) {
+    const key = comic.series && comic.series !== "" ? comic.series : "Miscellaneous";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(comic);
+  }
+
+  // Sort groups A-Z, Miscellaneous last
+  const keys = [...groups.keys()].filter(k => k !== "Miscellaneous").sort((a, b) => a.localeCompare(b));
+  if (groups.has("Miscellaneous")) keys.push("Miscellaneous");
+
+  // Sort within each group: Miscellaneous A-Z by title, others by release year
+  for (const key of keys) {
+    if (key === "Miscellaneous") {
+      groups.get(key).sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      groups.get(key).sort((a, b) => (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999));
+    }
+  }
+
+  grid.innerHTML = keys.map(key => `
+    <div class="series-divider"><span>${escapeHtml(key)}</span></div>
+    ${groups.get(key).map(comic => `
+      <div class="comic-card" data-id="${comic.id}">
+        <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
+        <img class="cover" src="${comic.image}" alt="${escapeHtml(comic.name)}" loading="lazy">
+        <div class="card-body">
+          <div class="card-title">${escapeHtml(comic.name)}</div>
+          <div class="card-meta">${escapeHtml(comic.publisher)} · ${comic.issueCount} issues · ${comic.year}</div>
+          <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
+        </div>
       </div>
-    </div>
-  `
-    )
-    .join("");
+    `).join("")}
+  `).join("");
 }
 
 function statusLabel(status) {
@@ -329,6 +343,40 @@ function openDetail(comic, isNew) {
   document.getElementById("detail-publisher").textContent = comic.publisher;
   document.getElementById("detail-year").textContent = comic.year;
   document.getElementById("detail-issues").textContent = comic.issueCount + " issues";
+
+  function renderDescription(html) {
+    const descEl = document.getElementById("detail-description");
+    if (!html) { descEl.classList.add("hidden"); return; }
+    const plain = stripHtml(html);
+    const LIMIT = 200;
+    if (plain.length <= LIMIT) {
+      descEl.textContent = plain;
+      descEl.onclick = null;
+    } else {
+      descEl.innerHTML = escapeHtml(plain.slice(0, LIMIT).trim()) + '… <span style="color:#fff">read more</span>';
+      descEl.onclick = () => openSynopsis(comic.name, html);
+    }
+    descEl.classList.remove("hidden");
+  }
+
+  renderDescription(comic.description || "");
+
+  if (!comic.description && getSetting("comicVineKey")) {
+    fetchDescription(comic.id).then((desc) => {
+      if (desc) {
+        comic.description = desc;
+        renderDescription(desc);
+        saveCollection();
+      }
+    });
+  }
+
+  const seriesSelect = document.getElementById("detail-series-input");
+  const currentSeries = comic.series || "Miscellaneous";
+  seriesSelect.innerHTML = getSeriesList().map(s =>
+    `<option value="${escapeHtml(s)}"${s === currentSeries ? " selected" : ""}>${escapeHtml(s)}</option>`
+  ).join("");
+
   setStatusPill(comic.status || "to-read");
 
   const saveBtn = document.getElementById("detail-save");
@@ -370,7 +418,20 @@ function volumeToComic(vol, status) {
     image: vol.image?.medium_url || vol.image?.small_url || "",
     status: status || "to-read",
     dateAdded: new Date().toISOString(),
+    description: vol.description || "",
+    series: "Miscellaneous",
   };
+}
+
+function openSynopsis(title, html) {
+  document.getElementById("synopsis-title").textContent = title;
+  document.getElementById("synopsis-body").innerHTML = html;
+  document.getElementById("synopsis-modal").classList.remove("hidden");
+}
+
+function getSeriesList() {
+  const set = new Set(collection.map(c => c.series).filter(s => s && s !== "Miscellaneous"));
+  return ["Miscellaneous", ...[...set].sort()];
 }
 
 function setStatusPill(status) {
@@ -391,7 +452,14 @@ function setSheetsStatus(msg, type) {
 
 // --- Events ---
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  if (sheetsConfigured()) {
+    try {
+      await syncFromSheets();
+    } catch (err) {
+      console.error("Failed to load from Sheets:", err);
+    }
+  }
   renderCollection();
 
   // Filter tabs (multi-select, but Favourites is mutually exclusive)
@@ -475,8 +543,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setSheetsStatus("Syncing...");
 
     try {
-      // Push local to sheets, then pull back
-      await syncToSheets();
       const count = await syncFromSheets();
       setSheetsStatus(`Synced. ${count} comic${count !== 1 ? "s" : ""} in sheet.`, "success");
     } catch (err) {
@@ -556,16 +622,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const status = getStatusPill();
     const batcaveUrl = document.getElementById("detail-batcave-input").value.trim();
     const favourite = !!activeDetailComic.favourite;
+    const series = document.getElementById("detail-series-input").value || "Miscellaneous";
     const idx = collection.findIndex((c) => c.id === activeDetailComic.id);
 
     if (idx >= 0) {
       collection[idx].status = status;
       collection[idx].batcaveUrl = batcaveUrl;
       collection[idx].favourite = favourite;
+      collection[idx].series = series;
     } else {
       activeDetailComic.status = status;
       activeDetailComic.batcaveUrl = batcaveUrl;
       activeDetailComic.favourite = favourite;
+      activeDetailComic.series = series;
       collection.push(activeDetailComic);
     }
 
