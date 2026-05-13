@@ -437,7 +437,7 @@ function renderCollection() {
 
   // Favourites view: flat list sorted A-Z, no dividers
   if (favouritesOnly) {
-    const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    const sorted = [...filtered].sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name)));
     grid.innerHTML = sorted.map(renderCard).join("");
     return;
   }
@@ -455,7 +455,7 @@ function renderCollection() {
 
   for (const key of keys) {
     if (key === "Miscellaneous") {
-      groups.get(key).sort((a, b) => a.name.localeCompare(b.name));
+      groups.get(key).sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name)));
     } else {
       groups.get(key).sort((a, b) => (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999));
     }
@@ -465,6 +465,10 @@ function renderCollection() {
     <div class="series-divider"><span>${escapeHtml(key)}</span></div>
     ${groups.get(key).map(renderCard).join("")}
   `).join("");
+}
+
+function sortTitle(name) {
+  return name.replace(/^the\s+/i, "");
 }
 
 function statusLabel(status) {
