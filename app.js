@@ -1134,9 +1134,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       activeDetailComic.series = document.getElementById("detail-series-select").value;
       activeDetailComic.favourite = favourite;
       collection.push(activeDetailComic);
-      // Fetch issues in background; apply comic's status to all if not to-read
+      // Fetch description + issues in background for newly added comic
       if (getSetting("comicVineKey")) {
         const newComicId = activeDetailComic.id;
+        fetchDescription(newComicId).then((desc) => {
+          if (desc) {
+            const c = collection.find(c => c.id === newComicId);
+            if (c) { c.description = desc; saveCollection(); }
+          }
+        }).catch(console.error);
         ensureIssuesLoaded(newComicId).then(() => {
           if (status !== "to-read") {
             issues.filter(i => i.volumeId === newComicId).forEach(i => { i.status = status; });
