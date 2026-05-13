@@ -4,7 +4,7 @@ const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
 let collection = [];
 let issues = [];
-let activeFilters = new Set(["to-read"]);
+let activeFilters = new Set();
 let activeDetailComic = null;
 let activeDetailStatus = "to-read";
 let activeIssuesComic = null;
@@ -355,13 +355,14 @@ function renderCollection() {
   const grid = document.getElementById("collection-grid");
   const empty = document.getElementById("empty-state");
 
+  const favouritesOnly = activeFilters.size === 1 && activeFilters.has("favourites");
+
   const filtered = activeFilters.size === 0
     ? collection
     : collection.filter((c) => {
-        if (activeFilters.has("favourites") && !c.favourite) return false;
+        if (activeFilters.has("favourites") && !c.favourite && c.status !== "in-progress") return false;
         const statusFilters = [...activeFilters].filter(f => f !== "favourites");
         if (statusFilters.length > 0) {
-          // in-progress shows up under to-read filter
           const expanded = [...statusFilters];
           if (expanded.includes("to-read")) expanded.push("in-progress");
           if (!expanded.includes(c.status)) return false;
@@ -382,7 +383,38 @@ function renderCollection() {
     return;
   }
 
-  // Group by series
+  grid.className = viewMode === "grid" ? "collection-grid" : "collection-list";
+
+  const renderCard = (comic) => viewMode === "grid" ? `
+    <div class="comic-card" data-id="${comic.id}">
+      <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
+      <img class="cover" src="${comic.image}" alt="${escapeHtml(comic.name)}" loading="lazy">
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(comic.name)}</div>
+        <div class="card-meta">${escapeHtml(comic.publisher)} · ${comic.issueCount} issues · ${comic.year}</div>
+        <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
+      </div>
+    </div>
+  ` : `
+    <div class="comic-list-item" data-id="${comic.id}">
+      <img class="list-thumb" src="${comic.image}" alt="" loading="lazy">
+      <div class="list-info">
+        <div class="list-title">${escapeHtml(comic.name)}</div>
+        <div class="list-meta">${escapeHtml(comic.publisher)} · ${comic.year} · ${comic.issueCount} issues</div>
+      </div>
+      <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
+      <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
+    </div>
+  `;
+
+  // Favourites view: flat list sorted A-Z, no dividers
+  if (favouritesOnly) {
+    const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    grid.innerHTML = sorted.map(renderCard).join("");
+    return;
+  }
+
+  // Grouped by series
   const groups = new Map();
   for (const comic of filtered) {
     const key = comic.series && comic.series !== "" ? comic.series : "Miscellaneous";
@@ -390,11 +422,9 @@ function renderCollection() {
     groups.get(key).push(comic);
   }
 
-  // Sort groups A-Z, Miscellaneous last
   const keys = [...groups.keys()].filter(k => k !== "Miscellaneous").sort((a, b) => a.localeCompare(b));
   if (groups.has("Miscellaneous")) keys.push("Miscellaneous");
 
-  // Sort within each group: Miscellaneous A-Z by title, others by release year
   for (const key of keys) {
     if (key === "Miscellaneous") {
       groups.get(key).sort((a, b) => a.name.localeCompare(b.name));
@@ -403,31 +433,9 @@ function renderCollection() {
     }
   }
 
-  grid.className = viewMode === "grid" ? "collection-grid" : "collection-list";
-
   grid.innerHTML = keys.map(key => `
     <div class="series-divider"><span>${escapeHtml(key)}</span></div>
-    ${groups.get(key).map(comic => viewMode === "grid" ? `
-      <div class="comic-card" data-id="${comic.id}">
-        <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
-        <img class="cover" src="${comic.image}" alt="${escapeHtml(comic.name)}" loading="lazy">
-        <div class="card-body">
-          <div class="card-title">${escapeHtml(comic.name)}</div>
-          <div class="card-meta">${escapeHtml(comic.publisher)} · ${comic.issueCount} issues · ${comic.year}</div>
-          <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
-        </div>
-      </div>
-    ` : `
-      <div class="comic-list-item" data-id="${comic.id}">
-        <img class="list-thumb" src="${comic.image}" alt="" loading="lazy">
-        <div class="list-info">
-          <div class="list-title">${escapeHtml(comic.name)}</div>
-          <div class="list-meta">${escapeHtml(comic.publisher)} · ${comic.year} · ${comic.issueCount} issues</div>
-        </div>
-        <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
-        <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
-      </div>
-    `).join("")}
+    ${groups.get(key).map(renderCard).join("")}
   `).join("");
 }
 
