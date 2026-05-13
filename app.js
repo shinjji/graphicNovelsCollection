@@ -6,6 +6,7 @@ let collection = [];
 let activeFilters = new Set(["to-read"]);
 let activeDetailComic = null;
 let jsonpCounter = 0;
+let viewMode = localStorage.getItem("viewMode") || "grid";
 
 // --- Settings ---
 
@@ -275,9 +276,11 @@ function renderCollection() {
     }
   }
 
+  grid.className = viewMode === "grid" ? "collection-grid" : "collection-list";
+
   grid.innerHTML = keys.map(key => `
     <div class="series-divider"><span>${escapeHtml(key)}</span></div>
-    ${groups.get(key).map(comic => `
+    ${groups.get(key).map(comic => viewMode === "grid" ? `
       <div class="comic-card" data-id="${comic.id}">
         <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
         <img class="cover" src="${comic.image}" alt="${escapeHtml(comic.name)}" loading="lazy">
@@ -286,6 +289,16 @@ function renderCollection() {
           <div class="card-meta">${escapeHtml(comic.publisher)} · ${comic.issueCount} issues · ${comic.year}</div>
           <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
         </div>
+      </div>
+    ` : `
+      <div class="comic-list-item" data-id="${comic.id}">
+        <img class="list-thumb" src="${comic.image}" alt="" loading="lazy">
+        <div class="list-info">
+          <div class="list-title">${escapeHtml(comic.name)}</div>
+          <div class="list-meta">${escapeHtml(comic.publisher)} · ${comic.year} · ${comic.issueCount} issues</div>
+        </div>
+        <span class="status-badge ${comic.status}">${statusLabel(comic.status)}</span>
+        <button class="card-favourite ${comic.favourite ? "is-favourite" : ""}" data-id="${comic.id}">&#9733;</button>
       </div>
     `).join("")}
   `).join("");
@@ -593,7 +606,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Click collection card
+  // View toggle
+  const viewToggleBtn = document.getElementById("view-toggle-btn");
+  viewToggleBtn.innerHTML = viewMode === "grid" ? "&#9776;" : "&#9635;";
+  viewToggleBtn.title = viewMode === "grid" ? "List view" : "Grid view";
+  viewToggleBtn.addEventListener("click", () => {
+    viewMode = viewMode === "grid" ? "list" : "grid";
+    localStorage.setItem("viewMode", viewMode);
+    viewToggleBtn.innerHTML = viewMode === "grid" ? "&#9776;" : "&#9635;";
+    viewToggleBtn.title = viewMode === "grid" ? "List view" : "Grid view";
+    renderCollection();
+  });
+
+  // Click collection card (grid or list)
   document.getElementById("collection-grid").addEventListener("click", (e) => {
     const starBtn = e.target.closest(".card-favourite");
     if (starBtn) {
@@ -607,7 +632,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const card = e.target.closest(".comic-card");
+    const card = e.target.closest(".comic-card, .comic-list-item");
     if (!card) return;
 
     const id = parseInt(card.dataset.id, 10);

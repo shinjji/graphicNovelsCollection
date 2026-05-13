@@ -157,6 +157,63 @@ main {
   gap: 1.5rem;
 }
 
+.collection-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.collection-list .series-divider {
+  grid-column: unset;
+}
+
+.comic-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.55rem 0.25rem;
+  border-bottom: 1px solid #1a1a1a;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.comic-list-item:hover {
+  background: #161616;
+}
+
+.list-thumb {
+  width: 36px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #222;
+  flex-shrink: 0;
+}
+
+.list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.15rem;
+}
+
+.list-meta {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.collection-list .card-favourite {
+  position: static;
+  background: none;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+}
+
 .comic-card {
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
