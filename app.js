@@ -391,16 +391,7 @@ function setSheetsStatus(msg, type) {
 
 // --- Events ---
 
-document.addEventListener("DOMContentLoaded", async () => {
-  // On load, try to sync from Sheets if configured
-  if (sheetsConfigured()) {
-    try {
-      await syncFromSheets();
-    } catch {
-      // Fall back to localStorage
-    }
-  }
-
+document.addEventListener("DOMContentLoaded", () => {
   renderCollection();
 
   // Filter tabs (multi-select, but Favourites is mutually exclusive)
