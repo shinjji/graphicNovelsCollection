@@ -508,7 +508,7 @@ function renderCollection() {
 
   // Favourites view: flat list sorted A-Z, no dividers
   if (favouritesOnly) {
-    const sorted = [...filtered].sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name)));
+    const sorted = [...filtered].sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name), undefined, { numeric: true }));
     grid.innerHTML = sorted.map(renderCard).join("");
     return;
   }
@@ -521,14 +521,17 @@ function renderCollection() {
     groups.get(key).push(comic);
   }
 
-  const keys = [...groups.keys()].filter(k => k !== "Miscellaneous").sort((a, b) => a.localeCompare(b));
+  const keys = [...groups.keys()].filter(k => k !== "Miscellaneous").sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   if (groups.has("Miscellaneous")) keys.push("Miscellaneous");
 
   for (const key of keys) {
     if (key === "Miscellaneous") {
-      groups.get(key).sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name)));
+      groups.get(key).sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name), undefined, { numeric: true }));
     } else {
-      groups.get(key).sort((a, b) => (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999));
+      groups.get(key).sort((a, b) => {
+        const yearDiff = (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999);
+        return yearDiff !== 0 ? yearDiff : sortTitle(a.name).localeCompare(sortTitle(b.name), undefined, { numeric: true });
+      });
     }
   }
 
@@ -708,7 +711,8 @@ function openDetail(comic, isNew) {
   updateBatcave(comic.batcaveUrl);
   batcaveInput.oninput = () => updateBatcave(batcaveInput.value.trim());
 
-  document.getElementById("detail-refresh-btn").classList.toggle("hidden", isNew || !getSetting("comicVineKey"));
+  const noRefresh = isNew || !getSetting("comicVineKey") || seriesNameToId(comic.series) === 13;
+  document.getElementById("detail-refresh-btn").classList.toggle("hidden", noRefresh);
 
   document.getElementById("detail-modal").classList.remove("hidden");
 }
