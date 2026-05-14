@@ -4,6 +4,7 @@ const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
 let collection = [];
 let issues = [];
+let seriesNotes = {}; // keyed by series name: { id, description }
 let activeFilters = new Set();
 let activeDetailComic = null;
 let activeDetailStatus = "to-read";
@@ -156,7 +157,7 @@ async function readFromSheets() {
     dateAdded: row[7] || "",
     batcaveUrl: row[8] || "",
     favourite: row[9] === "true",
-    series: row[10] || "Miscellaneous",
+    series: seriesIdToName(parseInt(row[10], 10)) || "Miscellaneous",
     description: row[11] || "",
   }));
 }
@@ -187,7 +188,7 @@ async function writeToSheets(comics) {
   const saJson = getSetting("gsheetJson");
 
   const rows = comics.map((c) => [
-    c.id, c.name, c.publisher, c.year, c.issueCount, c.image, c.status, c.dateAdded, c.batcaveUrl || "", c.favourite ? "true" : "false", c.series || "Miscellaneous", c.description || "",
+    c.id, c.name, c.publisher, c.year, c.issueCount, c.image, c.status, c.dateAdded, c.batcaveUrl || "", c.favourite ? "true" : "false", seriesNameToId(c.series) || c.series || "Miscellaneous", c.description || "",
   ]);
 
   if (rows.length === 0) return;
@@ -236,6 +237,59 @@ async function writeIssuesToSheets(issuesArray) {
   });
 }
 
+function seriesIdToName(id) {
+  const entry = Object.entries(seriesNotes).find(([, v]) => v.id === id);
+  return entry ? entry[0] : null;
+}
+
+function seriesNameToId(name) {
+  return seriesNotes[name]?.id || null;
+}
+
+async function readSeriesFromSheets() {
+  const sheetId = getSetting("gsheetId");
+  const apiKey = getSetting("gsheetApiKey");
+
+  const resp = await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Series!A2:C1000?key=${apiKey}`);
+  if (!resp.ok) throw new Error(`Series read failed: ${resp.status}`);
+  const data = await resp.json();
+
+  if (!data.values || data.values.length === 0) return {};
+
+  const map = {};
+  for (const row of data.values) {
+    const name = row[1] || "";
+    if (name) map[name] = { id: parseInt(row[0], 10) || 0, description: row[2] || "" };
+  }
+  return map;
+}
+
+async function writeSeriesNotesToSheets(notes) {
+  const sheetId = getSetting("gsheetId");
+  const saJson = getSetting("gsheetJson");
+
+  const rows = Object.entries(notes).map(([name, val]) => [val.id, name, val.description || ""]);
+
+  if (rows.length === 0) return;
+
+  const token = await getAccessToken(saJson);
+
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Series!A2:C1000:clear`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  await fetch(`${SHEETS_API}/${sheetId}/values/Comic_Series!A2:C${rows.length + 1}?valueInputOption=RAW`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ values: rows }),
+  });
+}
+
+function saveSeriesNotes() {
+  writeSeriesNotesToSheets(seriesNotes).catch((err) => console.error("Series notes write failed:", err));
+}
+
 function saveCollection() {
   writeToSheets(collection).catch((err) => console.error("Sheets write failed:", err));
 }
@@ -247,6 +301,21 @@ function saveIssues() {
 
 async function syncFromSheets() {
   if (!sheetsConfigured()) throw new Error("Google Sheets not configured");
+  // Series must load first so readFromSheets can resolve ids → names
+  try {
+    seriesNotes = await readSeriesFromSheets();
+    const needsIds = Object.values(seriesNotes).some(v => !v.id);
+    if (needsIds) {
+      let nextId = 1;
+      for (const key of Object.keys(seriesNotes)) {
+        if (!seriesNotes[key].id) seriesNotes[key].id = nextId;
+        nextId = Math.max(nextId, seriesNotes[key].id) + 1;
+      }
+      await writeSeriesNotesToSheets(seriesNotes);
+    }
+  } catch {
+    seriesNotes = {};
+  }
   collection = await readFromSheets();
   try {
     issues = await readIssuesFromSheets();
@@ -463,10 +532,17 @@ function renderCollection() {
     }
   }
 
-  grid.innerHTML = keys.map(key => `
-    <div class="series-divider"><span>${escapeHtml(key)}</span></div>
-    ${groups.get(key).map(renderCard).join("")}
-  `).join("");
+  grid.innerHTML = keys.map(key => {
+    const note = seriesNotes[key]?.description || "";
+    return `
+      <div class="series-divider" data-series="${escapeHtml(key)}">
+        <span>${escapeHtml(key)}</span>
+        <button class="series-note-btn" data-series="${escapeHtml(key)}" title="Edit note">&#9998;</button>
+      </div>
+      ${note ? `<p class="series-note" data-series="${escapeHtml(key)}">${escapeHtml(note)}</p>` : ""}
+      ${groups.get(key).map(renderCard).join("")}
+    `;
+  }).join("");
 }
 
 function sortTitle(name) {
@@ -1162,6 +1238,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("add-modal").classList.add("hidden");
     saveCollection();
     renderCollection();
+  });
+
+  // Series note edit
+  document.getElementById("collection-grid").addEventListener("click", (e) => {
+    const btn = e.target.closest(".series-note-btn");
+    if (!btn) return;
+    const seriesName = btn.dataset.series;
+    const existing = seriesNotes[seriesName]?.description || "";
+    const divider = document.querySelector(`.series-divider[data-series="${CSS.escape(seriesName)}"]`);
+
+    const textarea = document.createElement("textarea");
+    textarea.className = "series-note-editor";
+    textarea.value = existing;
+    textarea.placeholder = "Add a note for this series…";
+    textarea.rows = 3;
+
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "primary-btn";
+    saveBtn.textContent = "Save";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "secondary-btn";
+    cancelBtn.textContent = "Cancel";
+
+    const controls = document.createElement("div");
+    controls.className = "series-note-controls";
+    controls.append(saveBtn, cancelBtn);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "series-note-edit-wrapper";
+    wrapper.append(textarea, controls);
+
+    // Replace existing note paragraph (or insert after divider)
+    const existingNote = document.querySelector(`.series-note[data-series="${CSS.escape(seriesName)}"]`);
+    if (existingNote) {
+      existingNote.replaceWith(wrapper);
+    } else {
+      divider.insertAdjacentElement("afterend", wrapper);
+    }
+
+    textarea.focus();
+
+    saveBtn.addEventListener("click", () => {
+      const val = textarea.value.trim();
+      const nextId = Object.values(seriesNotes).reduce((max, v) => Math.max(max, v.id || 0), 0) + 1;
+      if (!seriesNotes[seriesName]) seriesNotes[seriesName] = { id: nextId, description: "" };
+      seriesNotes[seriesName].description = val;
+      saveSeriesNotes();
+      renderCollection();
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      renderCollection();
+    });
   });
 
   // Close modals

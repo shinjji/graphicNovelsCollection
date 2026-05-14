@@ -697,6 +697,66 @@ main {
   background: #2a2a2a;
 }
 
+.series-note-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.series-divider:hover .series-note-btn {
+  opacity: 1;
+}
+
+.series-note-btn:hover {
+  color: #aaa;
+}
+
+.series-note {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  color: #888;
+  margin: -0.1rem 0 0.5rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.series-note-edit-wrapper {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.series-note-editor {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.6rem;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.series-note-editor:focus {
+  outline: none;
+  border-color: #555;
+}
+
+.series-note-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .detail-batcave {
   display: flex;
   flex-direction: column;
