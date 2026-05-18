@@ -665,9 +665,7 @@ function openDetail(comic, isNew) {
   if (isNew) {
     seriesSpan.classList.add("hidden");
     seriesSelect.classList.remove("hidden");
-    const existingSeries = [...new Set(
-      collection.map(c => c.series || "Miscellaneous").filter(s => s !== "Miscellaneous")
-    )].sort();
+    const existingSeries = Object.keys(seriesNotes).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     seriesSelect.innerHTML = [
       "Miscellaneous",
       ...existingSeries,
@@ -1217,8 +1215,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       activeDetailComic.status = status;
       activeDetailComic.batcaveUrl = batcaveUrl;
-      activeDetailComic.series = document.getElementById("detail-series-select").value;
       activeDetailComic.favourite = favourite;
+      const selectedSeries = document.getElementById("detail-series-select").value;
+      if (selectedSeries && selectedSeries !== "Miscellaneous" && !seriesNotes[selectedSeries]) {
+        const nextId = Object.values(seriesNotes).reduce((max, v) => Math.max(max, v.id || 0), 0) + 1;
+        seriesNotes[selectedSeries] = { id: nextId, description: "" };
+        saveSeriesNotes();
+      }
+      activeDetailComic.series = selectedSeries;
       collection.push(activeDetailComic);
       // Fetch description + issues in background for newly added comic
       if (getSetting("comicVineKey")) {
