@@ -52,31 +52,6 @@ header h1::before {
   margin-bottom: 0.75rem;
 }
 
-.header-middle {
-  margin-bottom: 0.6rem;
-}
-
-#collection-search {
-  width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  color: #eee;
-  font-size: 0.85rem;
-  padding: 0.45rem 0.75rem;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-#collection-search:focus {
-  border-color: #555;
-}
-
-#collection-search::placeholder {
-  color: #555;
-}
-
 .header-bottom {
   display: flex;
   align-items: center;
