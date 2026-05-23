@@ -6,6 +6,7 @@ let collection = [];
 let issues = [];
 let seriesNotes = {}; // keyed by series name: { id, description }
 let activeFilters = new Set();
+let searchQuery = "";
 let activeDetailComic = null;
 let activeDetailStatus = "to-read";
 let activeIssuesComic = null;
@@ -456,18 +457,21 @@ function renderCollection() {
 
   const favouritesOnly = activeFilters.size === 1 && activeFilters.has("favourites");
 
-  const filtered = activeFilters.size === 0
-    ? collection
-    : collection.filter((c) => {
-        if (activeFilters.has("favourites") && !c.favourite && c.status !== "in-progress") return false;
-        const statusFilters = [...activeFilters].filter(f => f !== "favourites");
-        if (statusFilters.length > 0) {
-            if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
-          if (statusFilters.includes("completed")) statusFilters.push("read", "didnt-like", "finished-with");
-          if (!statusFilters.includes(c.status)) return false;
-        }
-        return true;
-      });
+  const q = searchQuery.toLowerCase().trim();
+
+  const filtered = collection.filter((c) => {
+    if (activeFilters.size > 0) {
+      if (activeFilters.has("favourites") && !c.favourite && c.status !== "in-progress") return false;
+      const statusFilters = [...activeFilters].filter(f => f !== "favourites");
+      if (statusFilters.length > 0) {
+        if (statusFilters.includes("to-read")) statusFilters.push("in-progress");
+        if (statusFilters.includes("completed")) statusFilters.push("read", "didnt-like", "finished-with");
+        if (!statusFilters.includes(c.status)) return false;
+      }
+    }
+    if (q && !c.name.toLowerCase().includes(q) && !c.publisher.toLowerCase().includes(q) && !(c.series || "").toLowerCase().includes(q)) return false;
+    return true;
+  });
 
   if (collection.length === 0) {
     empty.classList.remove("hidden");
@@ -903,6 +907,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   renderCollection();
+
+  // Collection search
+  document.getElementById("collection-search").addEventListener("input", (e) => {
+    searchQuery = e.target.value;
+    renderCollection();
+  });
 
   // Filter tabs
   document.querySelectorAll(".filter-btn").forEach((btn) => {
