@@ -7,6 +7,7 @@ let issues = [];
 let seriesNotes = {}; // keyed by series name: { id, description }
 let activeFilters = new Set();
 let searchQuery = "";
+let activeSeriesFilter = null;
 let activeDetailComic = null;
 let activeDetailStatus = "to-read";
 let activeIssuesComic = null;
@@ -450,6 +451,29 @@ function renderStats() {
   `;
 }
 
+function renderSeriesPills() {
+  const bar = document.getElementById("series-pills");
+  if (!bar) return;
+
+  // Gather all series present in the collection, sorted A-Z, Miscellaneous last
+  const seriesSet = new Set(collection.map(c => c.series || "Miscellaneous"));
+  const sorted = [...seriesSet].filter(s => s !== "Miscellaneous").sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (seriesSet.has("Miscellaneous")) sorted.push("Miscellaneous");
+
+  if (sorted.length <= 1) { bar.innerHTML = ""; return; }
+
+  bar.innerHTML = sorted.map(s => `
+    <button class="series-pill${activeSeriesFilter === s ? " active" : ""}" data-series="${escapeHtml(s)}">${escapeHtml(s)}</button>
+  `).join("");
+
+  bar.querySelectorAll(".series-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeSeriesFilter = activeSeriesFilter === btn.dataset.series ? null : btn.dataset.series;
+      renderCollection();
+    });
+  });
+}
+
 function renderCollection() {
   renderStats();
   const grid = document.getElementById("collection-grid");
@@ -470,8 +494,11 @@ function renderCollection() {
       }
     }
     if (q && !c.name.toLowerCase().includes(q) && !c.publisher.toLowerCase().includes(q) && !(c.series || "").toLowerCase().includes(q)) return false;
+    if (activeSeriesFilter && (c.series || "Miscellaneous") !== activeSeriesFilter) return false;
     return true;
   });
+
+  renderSeriesPills();
 
   if (collection.length === 0) {
     empty.classList.remove("hidden");

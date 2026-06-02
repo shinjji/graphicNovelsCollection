@@ -58,6 +58,40 @@ header h1::before {
   gap: 0.75rem;
 }
 
+.series-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.6rem;
+}
+
+.series-pill {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.series-pill:hover {
+  border-color: #e94560;
+  color: #e94560;
+  background: rgba(233, 69, 96, 0.08);
+}
+
+.series-pill.active {
+  border-color: #e94560;
+  color: #fff;
+  background: #e94560;
+}
+
 .header-buttons {
   display: flex;
   align-items: center;
