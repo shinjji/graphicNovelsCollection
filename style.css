@@ -58,11 +58,24 @@ header h1::before {
   gap: 0.75rem;
 }
 
+.series-pills-wrapper {
+  padding-top: 0.6rem;
+}
+
+.series-pills-toggle {
+  display: none;
+  box-sizing: border-box;
+}
+
 .series-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  padding-top: 0.6rem;
+  padding-top: 0.4rem;
+}
+
+.series-pills.collapsed {
+  display: none;
 }
 
 .series-pill {
@@ -1098,6 +1111,41 @@ main {
   .header-buttons {
     order: 3;
     flex-wrap: wrap;
+  }
+
+  .series-pills-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: 1.5px solid #444;
+    color: #999;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    padding: 0.4rem 1rem;
+    height: 2.1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .series-pills-toggle:hover {
+    border-color: #e94560;
+    color: #e94560;
+    background: rgba(233, 69, 96, 0.08);
+  }
+
+  .series-pills {
+    padding-top: 0.35rem;
+  }
+
+  .series-pills:not(.collapsed) {
+    display: flex;
+  }
+
+  .series-pills.collapsed {
+    display: none;
   }
 
   main {

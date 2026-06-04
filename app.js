@@ -460,11 +460,23 @@ function renderSeriesPills() {
   const sorted = [...seriesSet].filter(s => s !== "Miscellaneous").sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   if (seriesSet.has("Miscellaneous")) sorted.push("Miscellaneous");
 
-  if (sorted.length <= 1) { bar.innerHTML = ""; return; }
+  const wrapper = bar.closest(".series-pills-wrapper");
+  if (sorted.length <= 1) { if (wrapper) wrapper.style.display = "none"; bar.innerHTML = ""; return; }
+  if (wrapper) wrapper.style.display = "";
 
+  // Preserve collapsed state across re-renders
+  const wasCollapsed = bar.classList.contains("collapsed");
+  const isMobile = window.innerWidth <= 600;
   bar.innerHTML = sorted.map(s => `
     <button class="series-pill${activeSeriesFilter === s ? " active" : ""}" data-series="${escapeHtml(s)}">${escapeHtml(s)}</button>
   `).join("");
+
+  // Start collapsed on mobile unless user has expanded
+  if (isMobile && !bar.dataset.userToggled) bar.classList.add("collapsed");
+  else if (wasCollapsed) bar.classList.add("collapsed");
+
+  const chevron = document.getElementById("series-pills-chevron");
+  if (chevron) chevron.innerHTML = bar.classList.contains("collapsed") ? "&#9650;" : "&#9660;";
 
   bar.querySelectorAll(".series-pill").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -934,6 +946,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   renderCollection();
+
+  // Series pills toggle (mobile)
+  document.getElementById("series-pills-toggle").addEventListener("click", () => {
+    const pills = document.getElementById("series-pills");
+    const chevron = document.getElementById("series-pills-chevron");
+    const collapsed = pills.classList.toggle("collapsed");
+    pills.dataset.userToggled = "1";
+    chevron.innerHTML = collapsed ? "&#9650;" : "&#9660;";
+  });
 
   // Collection search
   document.getElementById("collection-search").addEventListener("input", (e) => {
